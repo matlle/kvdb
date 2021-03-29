@@ -1,0 +1,3 @@
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/db.dir
