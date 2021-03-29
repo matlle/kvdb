@@ -9,8 +9,6 @@
 /home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.cpp
 iostream
 -
-sys/stat.h
--
 Cli.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.h
 ../utils/log.hpp
@@ -104,12 +102,6 @@ memory
 Node.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.h
 
-/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.cpp
-Key.h
-/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.h
-Node.h
-/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.h
-
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.h
 cstdint
 -
@@ -143,10 +135,6 @@ cmath
 /home/matlle/Projects/c++/degree_project_ma/kvdb/utils/definies.h
 Key.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.h
-
-/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Value.cpp
-Value.h
-/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Value.h
 
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Value.h
 string

@@ -2,7 +2,6 @@
  *  Copyright Koukougnon Martial Babo, 2021.
  */
 #include <iostream>
-#include <sys/stat.h>
 #include "Cli.h"
 #include "../utils/log.hpp"
 
@@ -16,7 +15,6 @@ namespace kvdb {
     }
 
     void Cli::prompt() {
-        //std::cout << cws << "> ";
         std::cout << (db != nullptr && db->opened ? db->name : "") << "> ";
         getline(std::cin, command);
         std::vector<std::string> words = split_string(command, ' ');
@@ -33,19 +31,6 @@ namespace kvdb {
                 db->close();
                 db.reset();
             }
-            /*if(!create_dir(words.at(1).c_str())) {
-                exit(EXIT_FAILURE);
-            }
-            db_path = words.at(1);
-            std::vector<std::string> words1 = split_string(words.at(1), '/');
-            if(words1.empty()) {
-                exit(EXIT_FAILURE);
-            }
-            std::string db_name = words1.at(words1.size() - 1);
-            if(db_name.empty()) {
-                exit(EXIT_FAILURE);
-            }
-            cws = db_name;*/
             db = std::make_unique<Database>(words.at(1));
             if(!db->open()) {
                 ERROR("%s", "failed to open database");
@@ -61,7 +46,16 @@ namespace kvdb {
             }
             std::unique_ptr<Action> table_action = Action::parse(words.at(0));
             if(table_action != nullptr) {
-
+                auto it = db->tables.find(table_action->table_name);
+                if(it == db->tables.end()) {
+                    db->tables.insert(std::pair<std::string, std::unique_ptr<Table>>(table_action->table_name, std::make_unique<Table>()));
+                    it = db->tables.find(table_action->table_name);
+                    if(it != db->tables.end()) {
+                        std::string result = it->second->process_action(table_action->action, table_action->fields);
+                    }
+                } else {
+                    std::string result = it->second->process_action(table_action->action, table_action->fields);
+                }
             }
         }
         prompt();

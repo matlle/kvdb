@@ -28,6 +28,10 @@ namespace kvdb {
     class Table {
     public:
         std::unique_ptr<btree::BTree> tree = nullptr;
+        std::string name = std::string();
+
+        Table();
+        std::string process_action(int8_t action, const std::vector<std::vector<std::string>> &fields);
     };
 
 } // namespace kvdb

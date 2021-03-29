@@ -40,4 +40,9 @@ namespace kvdb {
         return action;
     }
 
+    Table::Table() = default;
+
+    std::string Table::process_action(int8_t action, const std::vector<std::vector<std::string>> &fields) {
+        return std::__cxx11::string();
+    }
 }
