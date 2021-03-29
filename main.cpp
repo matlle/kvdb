@@ -6,10 +6,11 @@
 #include "utils/log.hpp"
 #include "tree/BTree.h"
 #include "utils/random.hpp"
+#include "cli/Cli.h"
 
 int main(int argc, char *argv[]) {
     //std::unique_ptr<btree::BTree> &btree = btree::BTree::get_instance();
-    std::unique_ptr<btree::BTree> btree = std::make_unique<btree::BTree>();
+    /*std::unique_ptr<btree::BTree> btree = std::make_unique<btree::BTree>();
     btree->root = btree->root->insert_key(1, "val_1");
     btree->root = btree->root->insert_key(2, "val_2");
     btree->root = btree->root->insert_key(3, "val_3");
@@ -39,7 +40,10 @@ int main(int argc, char *argv[]) {
     btree->root = btree->root->insert_key(27, "val_27");
     btree->root = btree->root->insert_key(28, "val_28");
     btree->root = btree->root->insert_key(29, "val_29");
-    btree->root = btree->root->insert_key(30, "val_30");
+    btree->root = btree->root->insert_key(30, "val_30");*/
+
+    kvdb::Cli cli;
+    cli.prompt();
 
     return 0;
 }

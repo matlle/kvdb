@@ -11,7 +11,8 @@
 #include "../utils/definies.h"
 #include "Key.h"
 
-namespace btree {
+namespace kvdb::btree {
+
     class Node {
     public:
         //std::shared_ptr<Node> parent = nullptr;
@@ -35,5 +36,6 @@ namespace btree {
         void shift_children_to_left();
     };
 
-}
+} // namespace kvdb
+
 

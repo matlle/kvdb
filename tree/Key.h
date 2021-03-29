@@ -8,11 +8,12 @@
 #include <memory>
 #include "Value.h"
 
-namespace btree {
+namespace kvdb::btree {
 
     class Key {
     public:
         Key(const std::string &key, const std::string &value);
+
         Key(const std::size_t &hash, const std::string &value);
 
         std::string key = std::string();
@@ -20,5 +21,4 @@ namespace btree {
         std::shared_ptr<Value> value = nullptr;
     };
 
-}
-
+} // namespace kvdb

@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace btree {
+namespace kvdb::btree {
 
     class Value {
     public:
@@ -14,5 +14,6 @@ namespace btree {
         std::string data = std::string();
     };
 
-}
+} // namespace kvdb
+
 

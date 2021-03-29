@@ -131,17 +131,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named db
+# Target rules for targets named kvdb
 
 # Build rule for target.
-db: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 db
-.PHONY : db
+kvdb: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kvdb
+.PHONY : kvdb
 
 # fast build rule for target.
-db/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/build
-.PHONY : db/fast
+kvdb/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/build
+.PHONY : kvdb/fast
 
 cli/Cli.o: cli/Cli.cpp.o
 
@@ -149,7 +149,7 @@ cli/Cli.o: cli/Cli.cpp.o
 
 # target to build an object file
 cli/Cli.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/cli/Cli.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/cli/Cli.cpp.o
 .PHONY : cli/Cli.cpp.o
 
 cli/Cli.i: cli/Cli.cpp.i
@@ -158,7 +158,7 @@ cli/Cli.i: cli/Cli.cpp.i
 
 # target to preprocess a source file
 cli/Cli.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/cli/Cli.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/cli/Cli.cpp.i
 .PHONY : cli/Cli.cpp.i
 
 cli/Cli.s: cli/Cli.cpp.s
@@ -167,8 +167,62 @@ cli/Cli.s: cli/Cli.cpp.s
 
 # target to generate assembly for a file
 cli/Cli.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/cli/Cli.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/cli/Cli.cpp.s
 .PHONY : cli/Cli.cpp.s
+
+db/Database.o: db/Database.cpp.o
+
+.PHONY : db/Database.o
+
+# target to build an object file
+db/Database.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Database.cpp.o
+.PHONY : db/Database.cpp.o
+
+db/Database.i: db/Database.cpp.i
+
+.PHONY : db/Database.i
+
+# target to preprocess a source file
+db/Database.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Database.cpp.i
+.PHONY : db/Database.cpp.i
+
+db/Database.s: db/Database.cpp.s
+
+.PHONY : db/Database.s
+
+# target to generate assembly for a file
+db/Database.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Database.cpp.s
+.PHONY : db/Database.cpp.s
+
+db/Table.o: db/Table.cpp.o
+
+.PHONY : db/Table.o
+
+# target to build an object file
+db/Table.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Table.cpp.o
+.PHONY : db/Table.cpp.o
+
+db/Table.i: db/Table.cpp.i
+
+.PHONY : db/Table.i
+
+# target to preprocess a source file
+db/Table.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Table.cpp.i
+.PHONY : db/Table.cpp.i
+
+db/Table.s: db/Table.cpp.s
+
+.PHONY : db/Table.s
+
+# target to generate assembly for a file
+db/Table.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Table.cpp.s
+.PHONY : db/Table.cpp.s
 
 main.o: main.cpp.o
 
@@ -176,7 +230,7 @@ main.o: main.cpp.o
 
 # target to build an object file
 main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/main.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/main.cpp.o
 .PHONY : main.cpp.o
 
 main.i: main.cpp.i
@@ -185,7 +239,7 @@ main.i: main.cpp.i
 
 # target to preprocess a source file
 main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/main.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/main.cpp.i
 .PHONY : main.cpp.i
 
 main.s: main.cpp.s
@@ -194,7 +248,7 @@ main.s: main.cpp.s
 
 # target to generate assembly for a file
 main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/main.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/main.cpp.s
 .PHONY : main.cpp.s
 
 time/DateTime.o: time/DateTime.cpp.o
@@ -203,7 +257,7 @@ time/DateTime.o: time/DateTime.cpp.o
 
 # target to build an object file
 time/DateTime.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/time/DateTime.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/time/DateTime.cpp.o
 .PHONY : time/DateTime.cpp.o
 
 time/DateTime.i: time/DateTime.cpp.i
@@ -212,7 +266,7 @@ time/DateTime.i: time/DateTime.cpp.i
 
 # target to preprocess a source file
 time/DateTime.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/time/DateTime.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/time/DateTime.cpp.i
 .PHONY : time/DateTime.cpp.i
 
 time/DateTime.s: time/DateTime.cpp.s
@@ -221,7 +275,7 @@ time/DateTime.s: time/DateTime.cpp.s
 
 # target to generate assembly for a file
 time/DateTime.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/time/DateTime.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/time/DateTime.cpp.s
 .PHONY : time/DateTime.cpp.s
 
 tree/BTree.o: tree/BTree.cpp.o
@@ -230,7 +284,7 @@ tree/BTree.o: tree/BTree.cpp.o
 
 # target to build an object file
 tree/BTree.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/BTree.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/BTree.cpp.o
 .PHONY : tree/BTree.cpp.o
 
 tree/BTree.i: tree/BTree.cpp.i
@@ -239,7 +293,7 @@ tree/BTree.i: tree/BTree.cpp.i
 
 # target to preprocess a source file
 tree/BTree.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/BTree.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/BTree.cpp.i
 .PHONY : tree/BTree.cpp.i
 
 tree/BTree.s: tree/BTree.cpp.s
@@ -248,7 +302,7 @@ tree/BTree.s: tree/BTree.cpp.s
 
 # target to generate assembly for a file
 tree/BTree.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/BTree.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/BTree.cpp.s
 .PHONY : tree/BTree.cpp.s
 
 tree/Key.o: tree/Key.cpp.o
@@ -257,7 +311,7 @@ tree/Key.o: tree/Key.cpp.o
 
 # target to build an object file
 tree/Key.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Key.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Key.cpp.o
 .PHONY : tree/Key.cpp.o
 
 tree/Key.i: tree/Key.cpp.i
@@ -266,7 +320,7 @@ tree/Key.i: tree/Key.cpp.i
 
 # target to preprocess a source file
 tree/Key.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Key.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Key.cpp.i
 .PHONY : tree/Key.cpp.i
 
 tree/Key.s: tree/Key.cpp.s
@@ -275,7 +329,7 @@ tree/Key.s: tree/Key.cpp.s
 
 # target to generate assembly for a file
 tree/Key.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Key.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Key.cpp.s
 .PHONY : tree/Key.cpp.s
 
 tree/Node.o: tree/Node.cpp.o
@@ -284,7 +338,7 @@ tree/Node.o: tree/Node.cpp.o
 
 # target to build an object file
 tree/Node.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Node.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Node.cpp.o
 .PHONY : tree/Node.cpp.o
 
 tree/Node.i: tree/Node.cpp.i
@@ -293,7 +347,7 @@ tree/Node.i: tree/Node.cpp.i
 
 # target to preprocess a source file
 tree/Node.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Node.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Node.cpp.i
 .PHONY : tree/Node.cpp.i
 
 tree/Node.s: tree/Node.cpp.s
@@ -302,7 +356,7 @@ tree/Node.s: tree/Node.cpp.s
 
 # target to generate assembly for a file
 tree/Node.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Node.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Node.cpp.s
 .PHONY : tree/Node.cpp.s
 
 tree/Value.o: tree/Value.cpp.o
@@ -311,7 +365,7 @@ tree/Value.o: tree/Value.cpp.o
 
 # target to build an object file
 tree/Value.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Value.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Value.cpp.o
 .PHONY : tree/Value.cpp.o
 
 tree/Value.i: tree/Value.cpp.i
@@ -320,7 +374,7 @@ tree/Value.i: tree/Value.cpp.i
 
 # target to preprocess a source file
 tree/Value.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Value.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Value.cpp.i
 .PHONY : tree/Value.cpp.i
 
 tree/Value.s: tree/Value.cpp.s
@@ -329,7 +383,7 @@ tree/Value.s: tree/Value.cpp.s
 
 # target to generate assembly for a file
 tree/Value.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db.dir/build.make CMakeFiles/db.dir/tree/Value.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/tree/Value.cpp.s
 .PHONY : tree/Value.cpp.s
 
 # Help Target
@@ -340,10 +394,16 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... db"
+	@echo "... kvdb"
 	@echo "... cli/Cli.o"
 	@echo "... cli/Cli.i"
 	@echo "... cli/Cli.s"
+	@echo "... db/Database.o"
+	@echo "... db/Database.i"
+	@echo "... db/Database.s"
+	@echo "... db/Table.o"
+	@echo "... db/Table.i"
+	@echo "... db/Table.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

@@ -48,5 +48,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
-  "CMakeFiles/db.dir/DependInfo.cmake"
+  "CMakeFiles/kvdb.dir/DependInfo.cmake"
   )

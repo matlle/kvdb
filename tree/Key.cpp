@@ -4,7 +4,7 @@
 #include "Key.h"
 #include "Node.h"
 
-namespace btree {
+namespace kvdb::btree {
 
     Key::Key(const std::string &key, const std::string &value) {
         this->key = key;
@@ -17,4 +17,5 @@ namespace btree {
         this->value = std::make_shared<Value>(value);
     }
 
-}
+} // namespace kvdb
+

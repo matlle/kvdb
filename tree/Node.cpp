@@ -5,7 +5,7 @@
 #include "BTree.h"
 #include "../utils/log.hpp"
 
-namespace btree {
+namespace kvdb::btree {
 
     Node::Node() = default;
 
@@ -178,4 +178,6 @@ namespace btree {
         }
     }
 
-}
+} // namespace kvdb
+
+

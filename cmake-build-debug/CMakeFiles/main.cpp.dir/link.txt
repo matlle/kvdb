@@ -1,0 +1,1 @@
+/usr/bin/c++   -std=c++17 -pthread -g   CMakeFiles/main.cpp.dir/time/DateTime.cpp.o CMakeFiles/main.cpp.dir/tree/BTree.cpp.o CMakeFiles/main.cpp.dir/tree/Node.cpp.o CMakeFiles/main.cpp.dir/tree/Key.cpp.o CMakeFiles/main.cpp.dir/tree/Value.cpp.o CMakeFiles/main.cpp.dir/cli/Cli.cpp.o  -o main.cpp 

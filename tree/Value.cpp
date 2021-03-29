@@ -3,10 +3,10 @@
  */
 #include "Value.h"
 
-namespace btree {
+namespace kvdb::btree {
 
     Value::Value(const std::string &value) {
         this->data = value;
     }
 
-}
+} // namespace kvdb
