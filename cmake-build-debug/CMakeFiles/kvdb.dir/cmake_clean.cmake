@@ -1,6 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/kvdb.dir/cli/Cli.cpp.o"
   "CMakeFiles/kvdb.dir/db/Database.cpp.o"
+  "CMakeFiles/kvdb.dir/db/Stream.cpp.o"
   "CMakeFiles/kvdb.dir/db/Table.cpp.o"
   "CMakeFiles/kvdb.dir/main.cpp.o"
   "CMakeFiles/kvdb.dir/time/DateTime.cpp.o"

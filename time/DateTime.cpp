@@ -25,3 +25,16 @@ std::string DateTime::datetime() {
 long DateTime::now_timestamp_seconds() {
     return time(nullptr);
 }
+
+std::string DateTime::duration(double ms) {
+    std::string str = std::string();
+    char buf[20] = {0};
+    if((ms / 1000.0) < 1) {
+        sprintf(buf, "%.4fms", ms);
+    } else if((ms / 1000.0) > 1) {
+        sprintf(buf, "%.4fs", ms);
+    } else if((ms / 60000.0) > 1) {
+        sprintf(buf, "%.4fmn", ms);
+    }
+    return std::string((const char *)buf);
+}

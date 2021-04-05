@@ -7,18 +7,24 @@
 #include <memory>
 #include "../utils/definies.h"
 #include "Node.h"
+#include "../db/Stream.h"
 
-namespace kvdb::btree {
+namespace kvdb {
 
-    class BTree {
-    private:
-    public:
-        Node *root = nullptr;
+    namespace btree {
 
-        BTree();
-        ~BTree();
-        static Node *find_root(Node *node, Node *parent);
-    };
+        class BTree {
+        private:
+        public:
+            Node *root = nullptr;
+
+            BTree();
+            ~BTree();
+            static Node *find_root_node(Node *node, Node *parent);
+            static std::unique_ptr<BTree> deserialize(const Stream *stream);
+        };
+
+    }
 
 }
 

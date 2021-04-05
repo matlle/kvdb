@@ -29,7 +29,7 @@ namespace kvdb {
     }
 
     void Database::close() {
-
+        opened = false;
     }
 
     bool Database::create_dir(const char *dir_name) {

@@ -197,6 +197,33 @@ db/Database.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Database.cpp.s
 .PHONY : db/Database.cpp.s
 
+db/Stream.o: db/Stream.cpp.o
+
+.PHONY : db/Stream.o
+
+# target to build an object file
+db/Stream.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Stream.cpp.o
+.PHONY : db/Stream.cpp.o
+
+db/Stream.i: db/Stream.cpp.i
+
+.PHONY : db/Stream.i
+
+# target to preprocess a source file
+db/Stream.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Stream.cpp.i
+.PHONY : db/Stream.cpp.i
+
+db/Stream.s: db/Stream.cpp.s
+
+.PHONY : db/Stream.s
+
+# target to generate assembly for a file
+db/Stream.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvdb.dir/build.make CMakeFiles/kvdb.dir/db/Stream.cpp.s
+.PHONY : db/Stream.cpp.s
+
 db/Table.o: db/Table.cpp.o
 
 .PHONY : db/Table.o
@@ -401,6 +428,9 @@ help:
 	@echo "... db/Database.o"
 	@echo "... db/Database.i"
 	@echo "... db/Database.s"
+	@echo "... db/Stream.o"
+	@echo "... db/Stream.i"
+	@echo "... db/Stream.s"
 	@echo "... db/Table.o"
 	@echo "... db/Table.i"
 	@echo "... db/Table.s"

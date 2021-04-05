@@ -96,6 +96,12 @@
 		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Database.h">
 			<Option target="kvdb"/>
 		</Unit>
+		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Stream.cpp">
+			<Option target="kvdb"/>
+		</Unit>
+		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Stream.h">
+			<Option target="kvdb"/>
+		</Unit>
 		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Table.cpp">
 			<Option target="kvdb"/>
 		</Unit>
@@ -139,9 +145,6 @@
 			<Option target="kvdb"/>
 		</Unit>
 		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp">
-			<Option target="kvdb"/>
-		</Unit>
-		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/random.hpp">
 			<Option target="kvdb"/>
 		</Unit>
 		<Unit filename="/home/matlle/Projects/c++/degree_project_ma/kvdb/CMakeLists.txt">

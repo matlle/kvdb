@@ -5,14 +5,20 @@
 
 #include <string>
 
-namespace kvdb::btree {
+namespace kvdb {
 
-    class Value {
-    public:
-        explicit Value(const std::string &value);
+    namespace btree {
 
-        std::string data = std::string();
-    };
+        class Value {
+        public:
+            //std::string data = std::string();
+            uint32_t file_pos = 0;
+
+            Value();
+            //explicit Value(const std::string &value);
+        };
+
+    } // namespace btree
 
 } // namespace kvdb
 

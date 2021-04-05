@@ -14,9 +14,9 @@ namespace kvdb {
 
     class Cli {
     public:
-        inline static const int8_t OPENDB = 0;
-        inline static const int8_t EXIT = 1;
-        inline static std::map<std::string, int8_t> cmds{};
+        static constexpr int8_t SELECTDB = 0;
+        static constexpr int8_t EXIT = 1;
+        //static std::map<std::string, int8_t> cmds;
         std::string command = std::string();
         std::unique_ptr<Database> db = nullptr;
 

@@ -5,6 +5,7 @@
 
 #include <string>
 #include <ctime>
+#include <chrono>
 
 class DateTime {
 public:
@@ -18,4 +19,5 @@ public:
     DateTime();
     static long now_timestamp_seconds();
     static std::string datetime();
+    static std::string duration(double ms);
 };

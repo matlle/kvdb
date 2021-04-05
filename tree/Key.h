@@ -6,19 +6,29 @@
 #include <cstdint>
 #include <string>
 #include <memory>
+#include <vector>
 #include "Value.h"
+#include "../db/Stream.h"
 
-namespace kvdb::btree {
+namespace kvdb {
 
-    class Key {
-    public:
-        Key(const std::string &key, const std::string &value);
+    namespace btree {
 
-        Key(const std::size_t &hash, const std::string &value);
+        class Key {
+        public:
+            //std::string key = std::string();
+            std::size_t hash = 0;
+            std::shared_ptr<Value> value = std::make_shared<Value>();;
+            std::vector<std::unique_ptr<Key>> twins{};
+            bool deleted = false;
 
-        std::string key = std::string();
-        std::size_t hash = 0;
-        std::shared_ptr<Value> value = nullptr;
-    };
+            Key();
+            Key(const std::string &key, const std::string &value);
+            Key(const std::size_t &hash, const std::string &value);
+
+            bool serialize(Stream *stream);
+        };
+
+    }
 
 } // namespace kvdb

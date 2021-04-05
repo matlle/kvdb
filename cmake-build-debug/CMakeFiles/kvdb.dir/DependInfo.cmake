@@ -6,6 +6,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_CHECK_CXX
   "/home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.cpp" "/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/kvdb.dir/cli/Cli.cpp.o"
   "/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Database.cpp" "/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/kvdb.dir/db/Database.cpp.o"
+  "/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Stream.cpp" "/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/kvdb.dir/db/Stream.cpp.o"
   "/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Table.cpp" "/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/kvdb.dir/db/Table.cpp.o"
   "/home/matlle/Projects/c++/degree_project_ma/kvdb/main.cpp" "/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/kvdb.dir/main.cpp.o"
   "/home/matlle/Projects/c++/degree_project_ma/kvdb/time/DateTime.cpp" "/home/matlle/Projects/c++/degree_project_ma/kvdb/cmake-build-debug/CMakeFiles/kvdb.dir/time/DateTime.cpp.o"
