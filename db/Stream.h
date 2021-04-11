@@ -37,7 +37,7 @@ namespace kvdb {
         [[nodiscard]] uint8_t write_byte(const uint8_t &v);
         [[nodiscard]] uint32_t write_uint(const uint32_t &v);
         [[nodiscard]] uint32_t write_ulong(const uint64_t &v);
-        [[nodiscard]] uint32_t write_string(const std::string &str);
+        [[nodiscard]] uint32_t write_string(const std::string &str, bool with_length=true);
         [[nodiscard]] uint8_t read_byte() const;
         [[nodiscard]] uint32_t read_uint() const;
         [[nodiscard]] uint64_t read_ulong() const;

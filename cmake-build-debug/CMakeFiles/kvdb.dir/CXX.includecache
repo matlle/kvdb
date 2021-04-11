@@ -6,6 +6,14 @@
 
 #IncludeRegexTransform: 
 
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.cpp
+iostream
+-
+Cli.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.h
+../utils/log.hpp
+/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp
+
 /home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.h
 string
 -
@@ -19,6 +27,18 @@ memory
 /home/matlle/Projects/c++/degree_project_ma/kvdb/db/Database.h
 ../db/Table.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/db/Table.h
+
+/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Database.cpp
+sys/stat.h
+-
+vector
+-
+Database.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Database.h
+../utils/log.hpp
+/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp
+../cli/Cli.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.h
 
 /home/matlle/Projects/c++/degree_project_ma/kvdb/db/Database.h
 string
@@ -35,6 +55,14 @@ memory
 -
 pthread.h
 -
+
+/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Table.cpp
+Table.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/db/Table.h
+../cli/Cli.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.h
+../utils/log.hpp
+/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp
 
 /home/matlle/Projects/c++/degree_project_ma/kvdb/db/Table.h
 cstdint
@@ -56,6 +84,20 @@ tree/BTree.h
 cli/Cli.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/cli/Cli.h
 
+/home/matlle/Projects/c++/degree_project_ma/kvdb/time/DateTime.h
+string
+-
+ctime
+-
+chrono
+-
+
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/BTree.cpp
+BTree.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/BTree.h
+../utils/log.hpp
+/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp
+
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/BTree.h
 cstdint
 -
@@ -67,6 +109,12 @@ Node.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.h
 ../db/Stream.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/db/Stream.h
+
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.cpp
+Key.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.h
+Node.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.h
 
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Key.h
 cstdint
@@ -81,6 +129,16 @@ Value.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Value.h
 ../db/Stream.h
 /home/matlle/Projects/c++/degree_project_ma/kvdb/db/Stream.h
+
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.cpp
+algorithm
+-
+Node.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.h
+BTree.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/tree/BTree.h
+../utils/log.hpp
+/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp
 
 /home/matlle/Projects/c++/degree_project_ma/kvdb/tree/Node.h
 cstdint
@@ -105,4 +163,8 @@ string
 -
 
 /home/matlle/Projects/c++/degree_project_ma/kvdb/utils/definies.h
+
+/home/matlle/Projects/c++/degree_project_ma/kvdb/utils/log.hpp
+../time/DateTime.h
+/home/matlle/Projects/c++/degree_project_ma/kvdb/time/DateTime.h
 

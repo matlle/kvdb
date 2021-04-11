@@ -108,8 +108,8 @@ namespace kvdb {
         return 8;
     }
 
-    uint32_t Stream::write_string(const std::string &str) {
-        if(write_uint(str.length()) == 0) {
+    uint32_t Stream::write_string(const std::string &str, bool with_length) {
+        if(with_length && write_uint(str.length()) == 0) {
             return 0;
         }
         LOCK();
@@ -118,7 +118,7 @@ namespace kvdb {
         }
         total_bytes += str.length();
         UNLOCK();
-        return 4 + str.length();
+        return (with_length ? 4 : 0) + str.length();
     }
 
     uint8_t Stream::read_byte() const {

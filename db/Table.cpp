@@ -36,7 +36,7 @@ namespace kvdb {
         action->action = Action::get_action(words.at(0));
         std::string action_fields = words.at(1).substr(0, words.at(1).size() - 1);
         std::vector<std::string> fields = Cli::split_string(action_fields, ',');
-        for(auto & i : fields) {
+        for(const auto & i : fields) {
             //std::vector<std::string> field = Cli::split_string(i, ':');
             std::vector<std::string> field = Cli::split_string(i, '=');
             action->key_values.push_back(field);
@@ -100,95 +100,111 @@ namespace kvdb {
             bool has_not_id_key = true;
             for(const auto &key_value : key_values) {
                 if(!key_value.empty() && key_value.at(0) == "id") {
+                    //auto id = (uint32_t)std::stoi( key_value.at(1 ));
                     has_not_id_key = false;
                     break;
                 }
             }
             if(has_not_id_key) {
-                std::vector<std::string> v{"id", std::to_string(Table::primary_key++)};
+                std::vector<std::string> v{"id", std::to_string(primary_key++)};
                 key_values.insert(key_values.begin(), v);
             } else {
-                ++Table::primary_key;
+                ++primary_key;
             }
             uint32_t bytes_written = stream_data->write_string(Action::get_key_values_str(key_values));
             if(bytes_written == 0) {
                 return status;
             }
-            uint32_t file_pos = stream_data->total_bytes - bytes_written;
-            for(auto kv: key_values) {
+            uint32_t stream_pos = stream_data->total_bytes - bytes_written;
+            for(const auto &kv: key_values) {
                 if(kv.size() <= 1) {
                     continue;
                 }
                 std::unique_ptr<kvdb::btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
-                key->value->file_pos = file_pos;
+                key->value->stream_data_pos = stream_pos;
                 if(key->serialize(stream_tree.get())) {
                     tree->root = tree->root->insert_key_to_leaf(std::move(key));
                 }
             }
             status = kvdb::OK;
         } else if(action == Action::GET) {
-            std::vector<btree::Key *> keys_found{};
-            uint32_t keys_found_count = 0;
-            std::string fields = std::string();
-            for(auto kv: key_values) {
+            std::vector<btree::Key *> found_keys{};
+            btree::Key *found_key = nullptr;
+            for(const auto &kv: key_values) {
                 if(kv.size() <= 1) {
                     continue;
                 }
                 std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
-                btree::Node::find_key(tree->root, key.get(), &keys_found, false);
-                for(const auto &i : keys_found) {
+                btree::Node::search_key(tree->root, key.get(), found_key, false);
+                btree::Node::found_keys_count(found_key, &found_keys);
+                /*for(const auto &i : keys_found) {
                     count_keys_found(i, &keys_found_count, fields);
-                }
+                }*/
             }
-            if(keys_found_count == 0) {
+            if(found_keys.empty()) {
                 PRINT("%s", "No rows found");
             } else {
-                PRINT("%u row%s found", keys_found_count, (keys_found_count > 1 ? "s" : ""));
-                PRINT("%s", fields.c_str());
+                std::string search_fields = get_search_fields(found_keys);
+                PRINT("%u row%s found", found_keys.size(), (found_keys.size() > 1 ? "s" : ""));
+                PRINT("%s", search_fields.c_str());
             }
             status = kvdb::OK;
         } else if(action == Action::DELETE) {
+            std::vector<btree::Key *> keys_found{};
+            uint32_t count_keys_deleted = 0;
+            for(const auto &kv: key_values) {
+                if(kv.size() <= 1) {
+                    continue;
+                }
+                std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
+                //btree::Node::delete_key(tree->root, key.get(), &keys_found);
+                tree->root = btree::Node::delete_key(tree->root, key.get(), &count_keys_deleted, stream_tree.get());
+            }
+            if(count_keys_deleted == 0) {
+                PRINT("%s", "No rows deleted");
+            } else {
+                PRINT("%u row%s deleted", count_keys_deleted, (count_keys_deleted > 1 ? "s" : ""));
+            }
             status = kvdb::OK;
         }
         return status;
     }
 
-    void Table::count_keys_found(const btree::Key *key, uint32_t *count, std::string &fields) {
-        if(key == nullptr) {
-            return;
-        }
-        (*count)++;
-        std::vector<std::vector<std::string>> values{};
-        if(stream_data->opened() && stream_data->seek(key->value->file_pos)) {
-            uint32_t len = stream_data->read_uint();
-            if(len > 0) {
-                std::string value = stream_data->read_string(len);
-                if(!value.empty()) {
-                    std::vector<std::string> vec = Cli::split_string(value, '&');
-                    std::string row = "{";
-                    for(size_t i = 0; i < vec.size(); i++) {
-                        std::vector<std::string> v = Cli::split_string(vec.at(i), '=');
-                        if(v.size() > 1) {
-                            row += v.at(0) + ": ";
-                            row += v.at(1);
-                            if(i + 1 < vec.size()) {
-                                row += ", ";
+    std::string Table::get_search_fields(const std::vector<btree::Key *> &keys_found) const {
+        std::string str = std::string();
+        if(stream_data->opened()) {
+            for(const auto &i: keys_found) {
+                if(i == nullptr || !stream_data->seek(i->value->stream_data_pos)) {
+                    continue;
+                }
+                uint32_t len = stream_data->read_uint();
+                if(len > 0) {
+                    std::string value = stream_data->read_string(len);
+                    if(!value.empty()) {
+                        std::vector<std::string> vec = Cli::split_string(value, '&');
+                        std::string row = "{";
+                        for(size_t j = 0; j < vec.size(); j++) {
+                            std::vector<std::string> v = Cli::split_string(vec.at(j), '=');
+                            if(v.size() > 1) {
+                                row += v.at(0) + ": ";
+                                row += v.at(1);
+                                if(j + 1 < vec.size()) {
+                                    row += ", ";
+                                }
                             }
                         }
-                    }
-                    row += "}";
-                    if(row.length() > 2) {
-                        if(!fields.empty()) {
-                            fields += "\n";
+                        row += "}";
+                        if(row.length() > 2) {
+                            if(!str.empty()) {
+                                str += "\n";
+                            }
+                            str += row;
                         }
-                        fields += row;
                     }
                 }
             }
         }
-        for(const auto &twin_key : key->twins) {
-            count_keys_found(twin_key.get(), count, fields);
-        }
+        return str;
     }
 
 } // namespace kvdb

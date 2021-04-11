@@ -27,6 +27,7 @@ namespace kvdb {
             Key(const std::size_t &hash, const std::string &value);
 
             bool serialize(Stream *stream);
+            bool serialize_deleted(Stream *stream);
         };
 
     }

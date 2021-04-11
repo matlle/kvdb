@@ -28,8 +28,9 @@ namespace kvdb {
             while((hash = stream->read_ulong()) > 0) {
                 std::unique_ptr<Key> key = std::make_unique<Key>();
                 key->hash = hash;
-                key->value->file_pos = stream->read_uint();
+                key->value->stream_data_pos = stream->read_uint();
                 key->deleted = stream->read_byte() != 0;
+                key->value->stream_tree_pos = stream->read_uint();
                 if(key->deleted) {
                     //
                 } else {

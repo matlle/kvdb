@@ -1,6 +1,7 @@
 /*
  *  Copyright Koukougnon Martial Babo, 2021.
  */
+#include <algorithm>
 #include "Node.h"
 #include "BTree.h"
 #include "../utils/log.hpp"
@@ -71,6 +72,44 @@ namespace kvdb {
             }
         }
 
+        void Node::move_half_children_to_node(Node *node) {
+            if(children.size() > BTREE_MAX_DEGREE) {
+                for(size_t j = 0; j < children.size() / 2; j++) {
+                    node->add_child_node(std::move(children.at(j)));
+                }
+                children.erase(children.begin(), children.begin() + (children.size() / 2));
+            }
+        }
+
+        int Node::find_merging_node_key_index(Node *node, bool merging_to_predecessor) {
+            int index = -1;
+            if(merging_to_predecessor) {
+                for(int i = 0; i < parent->keys_count(); i++) {
+                    if(keys[keys_count() -1]->hash <= parent->keys[i]->hash && parent->keys[i]->hash <= node->keys[0]->hash) {
+                        index = i;
+                        break;
+                    }
+                }
+            } else {
+                for(int i = 0; i < parent->keys_count(); i++) {
+                    if(node->keys[node->keys_count() - 1]->hash <= parent->keys[i]->hash && parent->keys[i]->hash <= keys[0]->hash <= parent->keys[i]->hash) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+            return index;
+        }
+
+        void Node::merge_node(Node *node) {
+            for(int i = keys_count(), j = 0; i < BTREE_MAX_DEGREE - 1 && j < node->keys_count(); i++, j++) {
+                keys[i] = std::move(node->keys[j]);
+            }
+            sort_keys();
+            delete node;
+            node = nullptr;
+        }
+
         Node *Node::split(std::unique_ptr<Key> key) {
             if(parent == nullptr) {
                 //parent = std::make_shared<Node>();
@@ -79,9 +118,11 @@ namespace kvdb {
 
                 std::unique_ptr<Key> median_key = std::move(keys[(int)std::floor(BTREE_MAX_DEGREE / 2)]);
 
-                parent->add_child_node(split_keys(std::move(key)));
+                std::unique_ptr<Node> node1 = split_keys(std::move(key));
+                move_half_children_to_node(node1.get());
+                parent->add_child_node(std::move(node1));
 
-                shift_children_to_left();
+                //shift_children_to_left();
 
                 parent->add_child_node(std::move(std::unique_ptr<Node>(this)));
 
@@ -98,19 +139,16 @@ namespace kvdb {
             std::unique_ptr<Node> nn = split_keys(std::move(key));
             std::unique_ptr<Node> this_node = std::move(parent->children.at(parent->children.size() - 1));
             parent->children.pop_back();
+
+            move_half_children_to_node(nn.get());
             parent->add_child_node(std::move(nn));
+
             parent->add_child_node(std::move(this_node));
 
             Node *node = parent->insert_key(std::move(median_key));
-            /*if(node != parent) {
-                //node->parent = parent;
-                node->parent = parent->parent;
-            }*/
 
-            shift_children_to_left();
+            //shift_children_to_left();
 
-            //return parent.get();
-            //return parent;
             return node != parent ? node : parent;
         }
 
@@ -123,10 +161,10 @@ namespace kvdb {
             }
 
             // try to find the key in the entire tree
-            std::vector<btree::Key *> keys_found{};
-            btree::Node::find_key(this, key.get(), &keys_found, false);
-            if(!keys_found.empty()) {
-                keys_found.at(0)->twins.push_back(std::move(key));
+            std::vector<btree::Key *> found_keys{};
+            btree::Node::find_key(this, key.get(), &found_keys, false);
+            if(!found_keys.empty()) {
+                found_keys.at(0)->twins.push_back(std::move(key));
                 return BTree::find_root_node(this, parent);
             }
 
@@ -138,22 +176,6 @@ namespace kvdb {
             Node *node = this;
             bool was_broke = false;
             do {
-                /*int keys_count = node->keys_count();
-                if(key->hash <= node->keys[0]->hash) {
-                    node = node->children.at(0).get();
-                } else if(key->hash > node->keys[keys_count - 1]->hash) {
-                    node = node->children.at(node->children.size() - 1).get();
-                } else if(key->hash > node->keys[0]->hash && key->hash < node->keys[keys_count - 1]->hash) {
-                    for(int i = 0; i < keys_count; i++) {
-                        if(key->hash < node->keys[i]->hash) {
-                            node = node->children.at(i).get();
-                            break;
-                        } else if(key->hash > node->keys[i]->hash && i + 1 < keys_count && key->hash < node->keys[i + 1]->hash && i + 1 < node->children.size()) {
-                            node = node->children.at(i + 1).get();
-                            break;
-                        }
-                    }
-                }*/
                 node = find_child_node(key.get(), node);
                 if(node == nullptr) {
                     break;
@@ -200,13 +222,6 @@ namespace kvdb {
                 } else if(keys[median]->hash > key->hash) {
                     right_index = median - 1;
                 } else {
-                    /*if(keys[median]->value->data == key->value->data) {
-                        found_keys->push_back(node->keys[median].get());
-                        for(auto &key : node->keys[median]->siblings) {
-                            found_keys->push_back(key.get());
-                        }
-                    }
-                    key_found = true;*/
                     key_found_index = median;
                     break;
                 }
@@ -214,76 +229,51 @@ namespace kvdb {
             return key_found_index;
         }
 
-        int Node::contains_key(const Key *key, int *key_found_index) {
-            return (*key_found_index = binary_search(key)) > -1 && *key_found_index < BTREE_MAX_DEGREE && keys[*key_found_index] != nullptr;
+        int Node::contains_key(const Key *key, int *found_key_index) {
+            return (*found_key_index = binary_search(key)) > -1 && *found_key_index < BTREE_MAX_DEGREE && keys[*found_key_index] != nullptr;
         }
 
-        void Node::find_key(Node *node, Key *search_key, std::vector<kvdb::btree::Key *> *found_keys, bool searched) {
-            if(node == nullptr || search_key == nullptr) {
+        void Node::search_key(Node *&node, const Key *key, Key *&found_key, bool searched) {
+            if(node == nullptr || key == nullptr) {
                 return;
             }
             if(!searched) {
                 int key_found_index = 0;
-                if(node->contains_key(search_key, &key_found_index)) {
+                if(node->contains_key(key, &key_found_index)) {
+                    found_key = node->keys[key_found_index].get();
+                    return;
+                }
+            }
+
+            if(!node->children.empty()) {
+                found_key = search_key_in_children(node, key);
+                if(found_key == nullptr) {
+                    // node is now a child node
+                    search_key(node, key, found_key, true);
+                }
+            }
+        }
+
+        void Node::find_key(Node *node, const Key *key, std::vector<kvdb::btree::Key *> *found_keys, bool searched) {
+            if(node == nullptr || key == nullptr) {
+                return;
+            }
+            if(!searched) {
+                int key_found_index = 0;
+                if(node->contains_key(key, &key_found_index)) {
                     found_keys->push_back(node->keys[key_found_index].get());
                     return;
                 }
             }
             if(!node->children.empty()) {
-                Key *key_found = find_key_in_children(node, search_key);
+                Key *key_found = search_key_in_children(node, key);
                 if(key_found == nullptr) {
                     // node is now a child node
-                    find_key(node, search_key, found_keys, true);
+                    find_key(node, key, found_keys, true);
                 } else {
                     found_keys->push_back(key_found);
                 }
             }
-
-
-            //int key_found_index = node->binary_search(search_key);
-            //if(key_found_index > -1 && node->keys[key_found_index] != nullptr) {
-                /*if(node->keys[key_found_index]->value->data == search_key->value->data) {
-                    found_keys->push_back(node->keys[median].get());
-                    for(auto &key : node->keys[median]->siblings) {
-                        found_keys->push_back(key.get());
-                    }
-                }*/
-            //    found_keys->push_back(node->keys[key_found_index].get());
-            //    key_found = true;
-            //}
-
-            /*int keys_count = node->keys_count();
-            // binary search
-            int median;
-            int left_index = 0;
-            int right_index = keys_count - 1;
-            while(left_index <= right_index) {
-                median = (int)std::floor((left_index + right_index) / 2);
-                if(node->keys[median] == nullptr) {
-                    break;
-                }
-                if(node->keys[median]->hash < search_key->hash) {
-                    left_index = median + 1;
-                } else if(node->keys[median]->hash > search_key->hash) {
-                    right_index = median - 1;
-                } else {
-                    if(node->keys[median]->value->data == search_key->value->data) {
-                        found_keys->push_back(node->keys[median].get());
-                        for(auto &key : node->keys[median]->siblings) {
-                            found_keys->push_back(key.get());
-                        }
-                    }
-                    key_found = true;
-                    break;
-                }
-            }*/
-
-            /*if(!is_key_found && !node->children.empty()) {
-                node = find_child_node(search_key, node, false);
-                if(node != nullptr) {
-                    find_key(node, search_key, found_keys);
-                }
-            }*/
         }
 
         Node *Node::find_child_node(const Key *key, const Node *node) {
@@ -304,63 +294,17 @@ namespace kvdb {
                 }
             }
             return child;
-
-            /*for(size_t i = 0; i < parent->children.size(); i++) {
-                for(int j = 0; j < parent->children.at(i)->keys_count(); j++) {
-                    if(key->hash > parent->children.at(i)->keys[j]->hash) {
-                        continue;
-                    }
-                    child = parent->children.at(i).get();
-                    break;
-                }
-                if(child != nullptr) {
-                    break;
-                }
-                if(i + 1 == parent->children.size()) {
-                    child = parent->children.at(parent->children.size() - 1).get();
-                }
-            }*/
-
-            /*for(const auto &i : node->children) {
-                if(next_node != nullptr) {
-                    break;
-                }
-                for(int j = 0; j < i->keys_count(); j++) {
-                    if(i->keys[j]->hash > key->hash) {
-                        continue;
-                    }
-                    next_node = i.get();
-                    break;
-                }
-            }*/
-            /*Node *next_node = nullptr;
-            int keys_count = node->keys_count();
-            if(key->hash <= node->keys[0]->hash) {
-                next_node = node->children.at(0).get();
-            } else if(key->hash > node->keys[keys_count - 1]->hash) {
-                next_node = node->children.at(node->children.size() - 1).get();
-            } else if(key->hash > node->keys[0]->hash && key->hash < node->keys[keys_count - 1]->hash) {
-                for(int i = 0; i < keys_count; i++) {
-                    if(key->hash < node->keys[i]->hash) {
-                        next_node = node->children.at(i).get();
-                        break;
-                    } else if(key->hash > node->keys[i]->hash && i + 1 < keys_count && key->hash < node->keys[i + 1]->hash && i + 1 < node->children.size()) {
-                        next_node = node->children.at(i + 1).get();
-                        break;
-                    }
-                }
-            }
-            return next_node;*/
         }
 
-        Key *Node::find_key_in_children(Node *&node, const Key *search_key) {
+        Key *Node::search_key_in_children(Node *&node, const Key *search_key) {
             int key_found_index = -1;
             Key *key_found = nullptr;
             for(size_t i = 0; i < node->children.size(); i++) {
                 if(node->children.at(i)->contains_key(search_key, &key_found_index)) {
                     key_found = node->children.at(i)->keys[key_found_index].get();
+                    node = node->children.at(i).get();
                     break;
-                } else if(search_key->hash < node->children.at(i)->keys[0/*node->children.at(i)->keys_count() - 1*/]->hash) {
+                } else if((search_key->hash <= node->children.at(i)->keys[0]->hash) || node->children.at(i)->keys[0]->hash < search_key->hash && search_key->hash <= node->children.at(i)->keys[0]->hash) {
                     node = node->children.at(i).get();
                     break;
                 }
@@ -370,6 +314,186 @@ namespace kvdb {
                 }
             }
             return key_found;
+        }
+
+        void Node::delete_key(Node *node, Key *key, std::vector<kvdb::btree::Key *> *found_keys) {
+            btree::Key *found_key = nullptr;
+            search_key(node, key, found_key, false);
+            if(found_key == nullptr) {
+                return;
+            }
+            key->deleted = true;
+            insert_into_found_keys(key, found_keys);
+        }
+
+        Node *Node::delete_key(Node *&node, Key *key, uint32_t *count_keys_deleted, Stream *stream) {
+            btree::Key *found_key = nullptr;
+            search_key(node, key, found_key, false);
+            if(found_key == nullptr) {
+                return BTree::find_root_node(node, node->parent);
+            }
+            if(stream != nullptr && !key->serialize_deleted(stream)) {
+                return BTree::find_root_node(node, node->parent);
+            }
+            std::vector<btree::Key *> found_keys{};
+            found_keys_count(found_key, &found_keys);
+            *count_keys_deleted = found_keys.size();
+
+            if(node->is_leaf() && node->parent == nullptr) { // root
+                if(node->remove_key(found_key) > -1) {
+                    node->sort_keys();
+                }
+                return node;
+            } else if(node->is_leaf()) {
+                if(node->has_more_keys()) {
+                    if(node->remove_key(found_key) > -1) {
+                        node->sort_keys();
+                    }
+                } else {
+                    Node *predecessor_node = node->predecessor_node();
+                    if(predecessor_node != nullptr && predecessor_node->has_more_keys()) {
+                        int found_key_index = node->remove_key(found_key);
+                        if(found_key_index > -1) {
+                            std::unique_ptr<Key> predecessor_max_key = std::move(predecessor_node->keys[predecessor_node->keys_count() - 1]);
+                            int parent_max_key_index = node->parent->keys_count() - 1;
+                            std::unique_ptr<Key> parent_max_key = std::move(node->parent->keys[parent_max_key_index]);
+                            node->parent->keys[parent_max_key_index] = std::move(predecessor_max_key);
+                            node->keys[found_key_index] = std::move(parent_max_key);
+                            node->sort_keys();
+                        }
+                        return BTree::find_root_node(node, node->parent);
+                    }
+                    Node *successor_node = node->successor_node();
+                    if(successor_node != nullptr && successor_node->has_more_keys()) {
+                        int found_key_index = node->remove_key(found_key);
+                        if(found_key_index > -1) {
+                            std::unique_ptr<Key> successor_min_key = std::move(successor_node->keys[0]);
+                            int parent_max_key_index = node->parent->keys_count() - 1;
+                            std::unique_ptr<Key> parent_max_key = std::move(node->parent->keys[parent_max_key_index]);
+                            node->parent->keys[parent_max_key_index] = std::move(successor_min_key);
+                            node->keys[found_key_index] = std::move(parent_max_key);
+                            node->sort_keys();
+                        }
+                        return BTree::find_root_node(node, node->parent);
+                    }
+                    if(predecessor_node != nullptr && predecessor_node->parent != nullptr) {
+                        int merging_nodes_key_index = predecessor_node->find_merging_node_key_index(node);
+                        if(merging_nodes_key_index == -1) {
+                            return BTree::find_root_node(predecessor_node, predecessor_node->parent);
+                        }
+                        int found_key_index = predecessor_node->remove_key(found_key);
+                        if(found_key_index > -1) {
+                            predecessor_node->merge_node(node);
+                            int parent_keys_count = predecessor_node->parent->keys_count();
+                            predecessor_node->keys[predecessor_node->keys_count()] = std::move(predecessor_node->parent->keys[merging_nodes_key_index]);
+                            predecessor_node->parent->move_key_at_index(merging_nodes_key_index, parent_keys_count);
+                            predecessor_node->parent->sort_keys();
+                            predecessor_node->sort_keys();
+                        }
+                        return BTree::find_root_node(predecessor_node, predecessor_node->parent);
+                    } else if(successor_node != nullptr && successor_node->parent != nullptr) {
+                        int merging_nodes_key_index = successor_node->find_merging_node_key_index(node, false);
+                        if(merging_nodes_key_index == -1) {
+                            return BTree::find_root_node(successor_node, successor_node->parent);
+                        }
+                        int found_key_index = node->remove_key(found_key);
+                        if(found_key_index > -1) {
+                            successor_node->merge_node(node);
+                            int parent_keys_count = successor_node->parent->keys_count();
+                            successor_node->keys[successor_node->keys_count()] = std::move(successor_node->parent->keys[merging_nodes_key_index]);
+                            successor_node->parent->move_key_at_index(merging_nodes_key_index, parent_keys_count);
+                            successor_node->parent->sort_keys();
+                            successor_node->sort_keys();
+                        }
+                        return BTree::find_root_node(successor_node, successor_node->parent);
+                    }
+                }
+            } else if(!node->is_leaf() && node->parent != nullptr) {
+                //
+            }
+            return BTree::find_root_node(node, node->parent);
+        }
+
+        Node *Node::predecessor_node() {
+            Node *predecessor_node = nullptr;
+            if(parent == nullptr) {
+                return predecessor_node;
+            }
+            for(int i = 0; i < parent->children.size(); i++) {
+                if(parent->children.at(i).get() == this && i - 1 >= 0) {
+                    predecessor_node = parent->children.at(i - 1).get();
+                    break;
+                }
+            }
+            return predecessor_node;
+        }
+
+        Node *Node::successor_node() {
+            Node *successor_node = nullptr;
+            if(parent == nullptr) {
+                return successor_node;
+            }
+            for(int i = 0; i < parent->children.size(); i++) {
+                if(parent->children.at(i).get() == this && i + 1 < parent->children.size()) {
+                    successor_node = parent->children.at(i + 1).get();
+                    break;
+                }
+            }
+            return successor_node;
+        }
+
+        int Node::remove_key(const Key *key) {
+            int index = -1, i = 0, old_count = keys_count();
+            for(; i < old_count; i++) {
+                if(keys[i].get() == key) {
+                    keys[i].reset();
+                    index = i;
+                    break;
+                }
+            }
+            move_key_at_index(index, old_count);
+            return index;
+        }
+
+        void Node::move_key_at_index(int index, int old_count) {
+            if(index > -1) {
+                bool moved = false;
+                for(int i = 0; i < old_count; i++) {
+                    if(keys[i] != nullptr) {
+                        keys[index] = std::move(keys[i]);
+                        moved = true;
+                        break;
+                    }
+                }
+                if(moved) {
+                    sort_keys();
+                }
+            }
+        }
+
+        void Node::found_keys_count(Key *key, std::vector<kvdb::btree::Key *> *keys) {
+            if(key == nullptr) {
+                return;
+            }
+            insert_into_found_keys(key, keys);
+            for(const auto &twin_key : key->twins) {
+                found_keys_count(twin_key.get(), keys);
+            }
+        }
+
+        void Node::insert_into_found_keys(Key *key, std::vector<kvdb::btree::Key *> *found_keys) {
+            if(std::find(found_keys->begin(), found_keys->end(), key) == found_keys->end()) {
+                bool not_duplicate = true;
+                for(const auto &i : *found_keys) {
+                    if(i->value->stream_data_pos == key->value->stream_data_pos) {
+                        not_duplicate = false;
+                        break;
+                    }
+                }
+                if(not_duplicate) {
+                    found_keys->push_back(key);
+                }
+            }
         }
 
         void Node::sort_keys() {
@@ -410,6 +534,10 @@ namespace kvdb {
                 }
             }
             return count;
+        }
+
+        bool Node::has_more_keys() const {
+            return keys_count() > (int)std::ceil((BTREE_MAX_DEGREE - 1) / 2);
         }
 
     } // namespace btree
