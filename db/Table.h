@@ -36,9 +36,6 @@ namespace kvdb {
         explicit Table(const std::string &name, const std::string &db_path);
         kvdb::Status process_action(int8_t action, std::vector<std::vector<std::string>> &key_values, std::vector<std::vector<std::string>> *result);
         std::string get_search_fields(const std::vector<btree::Key *> &keys_found) const;
-        void put_keys();
-        void get_keys();
-        void delete_keys();
     };
 
 } // namespace kvdb

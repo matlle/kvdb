@@ -1,1 +1,0 @@
-/usr/bin/c++   -std=c++17 -pthread -g   CMakeFiles/db.dir/main.cpp.o CMakeFiles/db.dir/time/DateTime.cpp.o CMakeFiles/db.dir/tree/BTree.cpp.o CMakeFiles/db.dir/tree/Node.cpp.o CMakeFiles/db.dir/tree/Key.cpp.o CMakeFiles/db.dir/tree/Value.cpp.o CMakeFiles/db.dir/cli/Cli.cpp.o  -o db 

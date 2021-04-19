@@ -16,7 +16,6 @@ namespace kvdb {
     public:
         static constexpr int8_t SELECTDB = 0;
         static constexpr int8_t EXIT = 1;
-        //static std::map<std::string, int8_t> cmds;
         std::string command = std::string();
         std::unique_ptr<Database> db = nullptr;
 

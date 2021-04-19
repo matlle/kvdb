@@ -9,10 +9,6 @@ namespace kvdb {
 
         Value::Value() = default;
 
-        /*Value::Value(const std::string &value) {
-            this->data = value;
-        }*/
-
     } // namespace btree
 
 } // namespace kvdb

@@ -11,14 +11,7 @@ namespace kvdb {
         Key::Key() = default;
 
         Key::Key(const std::string &key, const std::string &value) {
-            //this->key = key;
             this->hash = Node::hash_key(key + value);
-            //this->value = std::make_shared<Value>(value);
-        }
-
-        Key::Key(const size_t &hash, const std::string &value) {
-            this->hash = hash;
-            //this->value = std::make_shared<Value>(value);
         }
 
         bool Key::serialize(Stream *stream) {

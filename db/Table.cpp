@@ -57,11 +57,6 @@ namespace kvdb {
                 str += "&";
             }
         }
-        /*if(has_not_id) {
-            str = "id=" + std::to_string(Table::primary_key++) + "&" + str;
-        } else if(!str.empty()) {
-            ++Table::primary_key;
-        }*/
         return str;
     }
 
@@ -135,11 +130,10 @@ namespace kvdb {
                     continue;
                 }
                 std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
-                btree::Node::search_key(tree->root, key.get(), found_key, false);
+                //btree::Node::search_key(tree->root, key.get(), found_key, false);
+                btree::Node::search_key(tree->root, key.get(), found_key);
+                tree->root = btree::BTree::find_root_node(tree->root, tree->root->parent);
                 btree::Node::found_keys_count(found_key, &found_keys);
-                /*for(const auto &i : keys_found) {
-                    count_keys_found(i, &keys_found_count, fields);
-                }*/
             }
             if(found_keys.empty()) {
                 PRINT("%s", "No rows found");

@@ -46,7 +46,6 @@ namespace kvdb {
                 prompt();
                 return;
             }
-            //std::unique_ptr<Action> table_action = Action::parse(words.at(0));
             std::unique_ptr<Action> table_action = Action::parse(command);
             if(table_action != nullptr) {
                 auto it = db->tables.find(table_action->table_name);
@@ -78,13 +77,6 @@ namespace kvdb {
     }
 
     int8_t Cli::get_command(const std::vector<std::string> &words, const std::string &str_cmd) {
-        /*auto it = cmds.find(words.at(0));
-        if(words.empty()) {
-            return -1;
-        }
-        if(it != cmds.end()) {
-            return it->second;
-        }*/
         if(words.empty()) {
             return -1;
         }

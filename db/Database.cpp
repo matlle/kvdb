@@ -35,11 +35,16 @@ namespace kvdb {
     bool Database::create_dir(const char *dir_name) {
         struct stat st = {0};
         if(stat(dir_name, &st) == -1) {
+#ifdef __linux__
             int r = mkdir(dir_name, 0777);
             if(r != 0 && r != EEXIST)  {
                 ERROR("%s", "mkdir() failed");
                 return false;
             }
+#else
+            _mkdir(dir_name);
+#endif
+
         }
         return true;
     }
