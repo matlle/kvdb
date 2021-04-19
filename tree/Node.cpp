@@ -16,7 +16,7 @@ namespace kvdb {
             keys[0] = std::make_unique<Key>(key, value);
         }
 
-        size_t Node::hash_key(const std::string &key) {
+        uint16_t Node::hash_key(const std::string &key) {
             return std::hash<std::string>{}(key);
         }
 
@@ -239,7 +239,7 @@ namespace kvdb {
 
         void Node::search_key(Node *&node, const Key *key, Key *&found_key) {
             int i = 0;
-            while(i < node->keys_count() && key->hash > node->keys[i]->hash) {
+            while(i < node->keys_count() && (node->keys[i] == nullptr || key->hash > node->keys[i]->hash)) {
                 i++;
             }
             if(i < node->keys_count() && key->hash == node->keys[i]->hash) {
@@ -291,14 +291,17 @@ namespace kvdb {
             found_keys_count(found_key, &found_keys);
             *count_keys_deleted = found_keys.size();
 
+            int old_keys_count = found_node->keys_count();
             if(found_node->is_leaf() && found_node->parent == nullptr) { // only node in the tree
                 if(found_node->remove_key(found_key) > -1) {
+                    found_node->move_keys_to_front(old_keys_count);
                     found_node->sort_keys();
                 }
                 return found_node;
             } else if(found_node->is_leaf()) { // leaf
                 if(found_node->has_more_keys()) {
                     if(found_node->remove_key(found_key) > -1) {
+                        found_node->move_keys_to_front(old_keys_count);
                         found_node->sort_keys();
                     }
                 } else {
@@ -324,7 +327,7 @@ namespace kvdb {
                     return BTree::find_root_node(successor_child_node, successor_child_node->parent);
                 }
                 if(predecessor_child_node != nullptr && successor_child_node != nullptr) {
-                    int old_keys_count = found_node->keys_count();
+                    old_keys_count = found_node->keys_count();
                     int found_key_index = found_node->remove_key(found_key);
                     if(found_key_index > -1) {
                         found_node->move_keys_to_front(old_keys_count);

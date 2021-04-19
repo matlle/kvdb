@@ -17,7 +17,7 @@ namespace kvdb {
         class Key {
         public:
             //std::string key = std::string();
-            uint64_t hash = 0;
+            uint16_t hash = 0;
             std::shared_ptr<Value> value = std::make_shared<Value>();;
             std::vector<std::unique_ptr<Key>> twins{};
             bool deleted = false;

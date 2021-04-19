@@ -37,7 +37,6 @@ namespace kvdb {
         std::string action_fields = words.at(1).substr(0, words.at(1).size() - 1);
         std::vector<std::string> fields = Cli::split_string(action_fields, ',');
         for(const auto & i : fields) {
-            //std::vector<std::string> field = Cli::split_string(i, ':');
             std::vector<std::string> field = Cli::split_string(i, '=');
             action->key_values.push_back(field);
         }
@@ -130,7 +129,6 @@ namespace kvdb {
                     continue;
                 }
                 std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
-                //btree::Node::search_key(tree->root, key.get(), found_key, false);
                 btree::Node::search_key(tree->root, key.get(), found_key);
                 tree->root = btree::BTree::find_root_node(tree->root, tree->root->parent);
                 btree::Node::found_keys_count(found_key, &found_keys);
@@ -151,7 +149,6 @@ namespace kvdb {
                     continue;
                 }
                 std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
-                //btree::Node::delete_key(tree->root, key.get(), &keys_found);
                 tree->root = btree::Node::delete_key(tree->root, key.get(), &count_keys_deleted, stream_tree.get());
             }
             if(count_keys_deleted == 0) {

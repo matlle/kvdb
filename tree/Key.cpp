@@ -11,7 +11,7 @@ namespace kvdb {
         Key::Key() = default;
 
         Key::Key(const std::string &key, const std::string &value) {
-            this->hash = Node::hash_key(key + value);
+            this->hash = (uint16_t)Node::hash_key(key + value);
         }
 
         bool Key::serialize(Stream *stream) {

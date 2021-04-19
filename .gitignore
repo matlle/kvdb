@@ -1,5 +1,5 @@
 cmake-build-debug/
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr

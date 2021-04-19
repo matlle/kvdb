@@ -42,7 +42,7 @@ namespace kvdb {
             PRINT("database '%s' selected", db->name.c_str());
         } else if(cmd == Action::PUT || cmd == Action::GET || cmd == Action::DELETE) {
             if(db == nullptr || !db->opened) {
-                ERROR("%s", "No database selected. Please open a database first.\nTry: selectdb your_database_name");
+                ERROR("%s", "No database selected. Please open a database first.\nTry: selectdb /path/your_db");
                 prompt();
                 return;
             }
