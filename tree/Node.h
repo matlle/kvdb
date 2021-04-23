@@ -27,7 +27,7 @@ namespace kvdb {
             static uint16_t hash_key(const std::string &key);
             bool is_leaf();
             static void search_key(Node *&node, const Key *key, Key *&found_key);
-            static Node *delete_key(Node *&found_node, Key *key, uint32_t *count_keys_deleted, Stream *stream);
+            static Node *delete_key(Node *&found_node, Key *key, uint32_t *count_keys_deleted, Stream *stream_tree);
             int remove_key(const Key *key);
             void move_keys_to_front(int old_count);
             Node *get_predecessor_node();

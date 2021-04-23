@@ -157,7 +157,7 @@ namespace kvdb {
         }
 
         Node *Node::insert_key_to_leaf(std::unique_ptr<Key> key) {
-            // we want to keep keys unique in nodes
+            // to keep keys unique in nodes
             int key_found_index = 0;
             if(contains_key(key.get(), &key_found_index)) {
                 keys[key_found_index]->twins.push_back(std::move(key));
@@ -243,7 +243,9 @@ namespace kvdb {
                 i++;
             }
             if(i < node->keys_count() && key->hash == node->keys[i]->hash) {
-                found_key = node->keys[i].get();
+                if(!node->keys[i]->deleted) {
+                    found_key = node->keys[i].get();
+                }
                 return;
             }
             if(node->is_leaf()) {
@@ -278,14 +280,28 @@ namespace kvdb {
         }
 
 
-        Node *Node::delete_key(Node *&found_node, Key *key, uint32_t *count_keys_deleted, Stream *stream) {
+        Node *Node::delete_key(Node *&found_node, Key *key, uint32_t *count_keys_deleted, Stream *stream_tree) {
             btree::Key *found_key = nullptr;
             search_key(found_node, key, found_key);
             if(found_key == nullptr) {
                 return BTree::find_root_node(found_node, found_node->parent);
             }
-            if(stream != nullptr && !key->serialize_deleted(stream)) {
-                return BTree::find_root_node(found_node, found_node->parent);
+            if(stream_tree != nullptr) {
+                key->deleted = true;
+                if(!key->serialize_deleted(stream_tree)) {
+                    return BTree::find_root_node(found_node, found_node->parent);
+                }
+                bool was_break = false;
+                for(auto &twin_key : found_key->twins) {
+                    twin_key->deleted = true;
+                    if(!twin_key->serialize_deleted(stream_tree)) {
+                        was_break = true;
+                        break;
+                    }
+                }
+                if(was_break) {
+                    return BTree::find_root_node(found_node, found_node->parent);
+                }
             }
             std::vector<btree::Key *> found_keys{};
             found_keys_count(found_key, &found_keys);
@@ -298,7 +314,7 @@ namespace kvdb {
                     found_node->sort_keys();
                 }
                 return found_node;
-            } else if(found_node->is_leaf()) { // leaf
+            } else if(found_node->is_leaf()) {
                 if(found_node->has_more_keys()) {
                     if(found_node->remove_key(found_key) > -1) {
                         found_node->move_keys_to_front(old_keys_count);
@@ -623,7 +639,7 @@ namespace kvdb {
         }
 
         void Node::found_keys_count(Key *key, std::vector<kvdb::btree::Key *> *keys) {
-            if(key == nullptr) {
+            if(key == nullptr || key->deleted) {
                 return;
             }
             insert_into_found_keys(key, keys);

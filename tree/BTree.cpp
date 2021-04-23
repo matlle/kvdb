@@ -19,18 +19,19 @@ namespace kvdb {
             return find_root_node(node->parent, node->parent->parent);
         }
 
-        std::unique_ptr<BTree> BTree::deserialize(const Stream *stream) {
-            if(stream == nullptr) {
+        std::unique_ptr<BTree> BTree::deserialize(Stream *stream_tree) {
+            if(stream_tree == nullptr) {
                 return nullptr;
             }
             std::unique_ptr<BTree> tree = std::make_unique<BTree>();
             size_t hash = 0;
-            while((hash = stream->read_ulong()) > 0) {
+            while((hash = stream_tree->read_ulong()) > 0) {
                 std::unique_ptr<Key> key = std::make_unique<Key>();
                 key->hash = hash;
-                key->value->stream_data_pos = stream->read_uint();
-                key->deleted = stream->read_byte() != 0;
-                key->value->stream_tree_pos = stream->read_uint();
+                key->value->stream_data_pos = stream_tree->read_uint();
+                key->deleted = stream_tree->read_byte() != 0;
+                stream_tree->total_bytes += 13;
+                key->value->stream_tree_pos = stream_tree->total_bytes - 13;
                 if(key->deleted) {
                     //
                 } else {

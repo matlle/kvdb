@@ -51,7 +51,13 @@ namespace kvdb {
                 auto it = db->tables.find(table_action->table_name);
                 Table *table = nullptr;
                 if(it == db->tables.end()) {
-                    db->tables.insert(std::pair<std::string, std::unique_ptr<Table>>(table_action->table_name, std::make_unique<Table>(table_action->table_name, db->path)));
+                    std::unique_ptr<Table> t = std::make_unique<Table>(table_action->table_name, db->path);
+                    if(!t->open()) {
+                        ERROR("failed to open table %s", table_action->table_name.c_str());
+                        prompt();
+                        return;
+                    }
+                    db->tables.insert(std::pair<std::string, std::unique_ptr<Table>>(table_action->table_name, std::move(t)));
                     it = db->tables.find(table_action->table_name);
                     if(it != db->tables.end()) {
                         table = it->second.get();
@@ -61,7 +67,7 @@ namespace kvdb {
                 }
                 if(table != nullptr) {
                     std::vector<std::vector<std::string>> result{};
-                    status = it->second->process_action(table_action->action, table_action->key_values, &result);
+                    status = it->second->process_action(table_action->action, table_action->key_values);
                 }
             }
         }

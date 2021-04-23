@@ -21,7 +21,7 @@ namespace kvdb {
             BTree();
             ~BTree();
             static Node *find_root_node(Node *node, Node *parent);
-            static std::unique_ptr<BTree> deserialize(const Stream *stream);
+            static std::unique_ptr<BTree> deserialize(Stream *stream_tree);
         };
 
     }

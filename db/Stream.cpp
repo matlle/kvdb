@@ -116,7 +116,9 @@ namespace kvdb {
         if((fwrite(str.c_str(), sizeof(byte), str.length(), file_ptr) != str.length()) || fflush(file_ptr) != 0) {
             UNLOCK();
         }
-        total_bytes += str.length();
+        if(with_length) {
+            total_bytes += str.length();
+        }
         UNLOCK();
         return (with_length ? 4 : 0) + str.length();
     }

@@ -44,7 +44,6 @@ namespace kvdb {
 #else
             _mkdir(dir_name);
 #endif
-
         }
         return true;
     }

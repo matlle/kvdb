@@ -14,28 +14,32 @@ namespace kvdb {
             this->hash = (uint16_t)Node::hash_key(key + value);
         }
 
-        bool Key::serialize(Stream *stream) {
-            if(stream == nullptr || !stream->opened()) {
+        Key::Key(const std::string &key) {
+            this->hash = (uint16_t)Node::hash_key(key);
+        }
+
+        bool Key::serialize(Stream *stream_tree) const {
+            if(stream_tree == nullptr || !stream_tree->opened()) {
                 return false;
             }
-            uint32_t bytes_written = stream->write_ulong(hash);
+            uint32_t bytes_written = stream_tree->write_ulong(hash);
             if(bytes_written == 0) {
                 return false;
             }
-            uint32_t stream_pos = stream->total_bytes - bytes_written;
-            return stream->write_uint(value->stream_data_pos) > 0
-                   && stream->write_byte(!deleted ? 0 : 1) > 0
-                   && stream->write_uint(stream_pos) > 0;
+            //value->stream_tree_pos = stream_tree->total_bytes - bytes_written;
+            //stream_tree->total_bytes - bytes_written;
+            return stream_tree->write_uint(stream_data_pos) > 0;
+                //&& stream_tree->write_byte(!deleted ? 0 : 1) > 0;
         }
 
-        bool Key::serialize_deleted(Stream *stream) {
-            if(stream == nullptr || !stream->opened()) {
+        bool Key::serialize_deleted(Stream *stream_tree) {
+            if(stream_tree == nullptr || !stream_tree->opened()) {
                 return false;
             }
-            if(!stream->seek(value->stream_tree_pos)) {
+            if(!stream_tree->seek(value->stream_tree_pos)) {
                 return false;
             }
-            return stream->write_string(std::string("00000000000000000"), false) == 17 && stream->seek_end();
+            return stream_tree->write_string(std::string("0000000000000"), false) == 13 && stream_tree->seek_end();
         }
 
     } // namespace btree
