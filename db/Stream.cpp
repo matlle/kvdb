@@ -10,19 +10,20 @@
 namespace kvdb {
 
     Stream::Stream(const std::string &path, const char *mode) {
-        if(path.empty()) {
+        this->path = path;
+        if(this->path.empty()) {
             ERROR("%s", "stream path empty");
             return;
         }
         struct stat st = {0};
-        if(stat(path.c_str(), &st) == -1 || file_ptr == nullptr) {
-            file_ptr = fopen(path.c_str(), mode);
+        if(stat(this->path.c_str(), &st) == -1 || file_ptr == nullptr) {
+            file_ptr = fopen(this->path.c_str(), mode);
             if(file_ptr == nullptr || !seek(0)) {
                 return;
             }
         }
         if(!seek_end()) {
-            ERROR("%s failed to seek_end", path.c_str());
+            ERROR("%s failed to seek_end", this->path.c_str());
             return;
         }
         int64_t number_of_bytes = ftell(file_ptr);
@@ -186,6 +187,24 @@ namespace kvdb {
         }
         delete[] buf;
         return v;
+    }
+
+    bool Stream::close() {
+        if(fclose(file_ptr) == 0) {
+            file_ptr = nullptr;
+            return true;
+        }
+        ERROR("failed to close stream %s", path.c_str());
+        ERROR("%s", strerror(errno));
+        return false;
+    }
+
+    bool Stream::delete_file() const {
+        if(remove(path.c_str()) == 0) {
+            return true;
+        }
+        ERROR("failed to delete file %s", path.c_str());
+        return false;
     }
 
 }

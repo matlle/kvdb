@@ -70,7 +70,7 @@ namespace kvdb {
             ERROR("%s", "can't open stream");
             return false;
         }
-        stream_tree = std::make_unique<Stream>(path + "/r" + row_id + "_" + std::to_string(btree::Node::hash_key("/r" + row_id)), O_AWRITE);
+        stream_tree = std::make_unique<Stream>(path + "/" + /*"/r" + row_id + "_" + */ std::to_string(btree::Node::hash_key("/r" + row_id)), O_AWRITE);
         if(!stream_tree->opened()) {
             ERROR("%s", "can't open stream");
             return false;
@@ -80,40 +80,9 @@ namespace kvdb {
 
     std::vector<KeyValue> Row::get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const {
         std::vector<KeyValue> data{};
-        if(key_values.empty()) {
-            return data;
-        }
 
         std::vector<btree::Key *> keys{};
-        for(const auto &kv: key_values) {
-            if(kv.size() <= 1) {
-                continue;
-            }
-            btree::Key *found_key = nullptr;
-            std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0));
-            btree::Node *root_node = tree->root;
-            btree::Node::search_key(root_node, key.get(), found_key);
-            tree->root = btree::BTree::find_root_node(root_node, root_node->parent);
-            if(found_key != nullptr) {
-                keys.push_back(found_key);
-            }
-        }
-
-        if(keys.empty() || keys.size() != key_values.size()) {
-            return data;
-        }
-
-        std::string str_key = std::string();
-        std::string str_value = std::string();
-        bool flag = true;
-        for(size_t i = 0; i < keys.size(); i++) {
-            if(!has_value(keys.at(i), key_values.at(i))) {
-                flag = false;
-                break;
-            }
-        }
-
-        if(!flag) {
+        if(!has_keys_values(key_values, keys)) {
             return data;
         }
 
@@ -138,6 +107,9 @@ namespace kvdb {
 
     bool Row::has_value(const btree::Key *key, const std::vector<std::string> &kv) const {
         uint32_t len = 0;
+        if(stream_data == nullptr || stream_tree == nullptr) {
+            return false;
+        }
         if(!stream_data->seek(key->stream_data_pos)) {
             ERROR("%", "failed to seek in stream_data");
             return false;
@@ -176,6 +148,66 @@ namespace kvdb {
         return true;
     }
 
+    bool Row::has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<btree::Key *> keys) const {
+        if(key_values.empty()) {
+            return false;
+        }
+
+        for(const auto &kv: key_values) {
+            if(kv.size() <= 1) {
+                continue;
+            }
+            btree::Key *found_key = nullptr;
+            std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0));
+            btree::Node *root_node = tree->root;
+            btree::Node::search_key(root_node, key.get(), found_key);
+            tree->root = btree::BTree::find_root_node(root_node, root_node->parent);
+            if(found_key != nullptr) {
+                keys.push_back(found_key);
+            }
+        }
+
+        if(keys.empty() || keys.size() != key_values.size()) {
+            return false;
+        }
+
+        bool flag = true;
+        for(size_t i = 0; i < keys.size(); i++) {
+            if(!has_value(keys.at(i), key_values.at(i))) {
+                flag = false;
+                break;
+            }
+        }
+
+        if(!flag) {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool Row::delete_row() {
+        if(stream_data != nullptr && stream_tree != nullptr) {
+            if(stream_data->close() && stream_tree->close()) {
+                if(stream_data->delete_file() && stream_tree->delete_file()) {
+                    stream_data = nullptr;
+                    stream_tree = nullptr;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    btree::Key *Row::has_key(const std::string &str_key) const {
+        btree::Key *found_key = nullptr;
+        std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(str_key);
+        btree::Node *root_node = tree->root;
+        btree::Node::search_key(root_node, key.get(), found_key);
+        tree->root = btree::BTree::find_root_node(root_node, root_node->parent);
+        return found_key;
+    }
+
     Table::Table(const std::string &name, const std::string &db_path) {
         this->name = name;
         this->path = db_path + "/" + name;
@@ -204,7 +236,7 @@ namespace kvdb {
         return opened = true;
     }
 
-    Row *Table::get_row_info(const std::string &row_id) {
+    Row *Table::get_row(const std::string &row_id) {
         Row *row = nullptr;
         auto it = rows.find(row_id);
         if(it == rows.end()) {
@@ -251,8 +283,8 @@ namespace kvdb {
                 row_id = std::to_string(primary_key++);
             }
 
-            Row *row_info = get_row_info(row_id);
-            if(row_info == nullptr) {
+            Row *row = get_row(row_id);
+            if(row == nullptr) {
                 ERROR("%s", "failed to insert row");
                 return kvdb::ERROR;
             }
@@ -261,15 +293,20 @@ namespace kvdb {
                 if(kv.size() <= 1) {
                     continue;
                 }
-                uint32_t bytes_written = row_info->stream_data->write_string(kv.at(0));
-                bytes_written += row_info->stream_data->write_string(kv.at(1));
-                uint32_t stream_data_pos = row_info->stream_data->total_bytes - bytes_written;
+                kvdb::btree::Key *found_key = row->has_key(kv.at(0));
+                if(kv.at(0) != "id" && found_key != nullptr) {
+                    row->tree->root = btree::Node::delete_key(row->tree->root, found_key);
+                }
+                uint32_t bytes_written = row->stream_data->write_string(kv.at(0));
+                bytes_written += row->stream_data->write_string(kv.at(1));
+                uint32_t stream_data_pos = row->stream_data->total_bytes - bytes_written;
                 std::unique_ptr<kvdb::btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0));
                 key->stream_data_pos = stream_data_pos;
-                if(key->serialize(row_info->stream_tree.get())) {
-                    row_info->tree->root = row_info->tree->root->insert_key_to_leaf(std::move(key));
+                if(key->serialize(row->stream_tree.get())) {
+                    row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
                 }
             }
+
             status = kvdb::OK;
         } else if(action == Action::GET) {
             std::vector<std::vector<KeyValue>> found_rows{};
@@ -293,6 +330,22 @@ namespace kvdb {
             }
             status = kvdb::OK;
         } else if(action == Action::DELETE) {
+            uint32_t deleted_rows_count = 0;
+            std::vector<btree::Key *> keys{};
+            for(auto it = rows.cbegin(), next_it = it; it != rows.cend(); it = next_it) {
+                ++next_it;
+                if(it->second->has_keys_values(key_values, keys) && it->second->delete_row()) {
+                    deleted_rows_count++;
+                    rows.erase(it);
+                }
+            }
+
+            if(deleted_rows_count == 0) {
+                PRINT("%s", "No rows deleted");
+            } else {
+                PRINT("%u row%s deleted", deleted_rows_count, (deleted_rows_count > 1 ? "s" : ""));
+            }
+
             /*std::vector<btree::Key *> keys_found{};
             uint32_t count_keys_deleted = 0;
             for(const auto &kv: key_values) {

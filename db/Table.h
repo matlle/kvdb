@@ -43,7 +43,10 @@ namespace kvdb {
 
         bool get_stream(const std::string &path);
         std::vector<KeyValue> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
+        btree::Key *has_key(const std::string &str_key) const;
         bool has_value(const btree::Key *key, const std::vector<std::string> &kv) const;
+        bool has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<btree::Key *> keys) const;
+        bool delete_row();
     };
 
     class Table {
@@ -59,7 +62,7 @@ namespace kvdb {
         static void display_found_rows(const std::vector<std::vector<KeyValue>> &found_rows);
         bool open();
         static bool create_dir(const char *dir_name);
-        Row *get_row_info(const std::string &row_id);
+        Row *get_row(const std::string &row_id);
     };
 
 } // namespace kvdb

@@ -160,21 +160,23 @@ namespace kvdb {
             // to keep keys unique in nodes
             int key_found_index = 0;
             if(contains_key(key.get(), &key_found_index)) {
-                keys[key_found_index]->twins.push_back(std::move(key));
+                //keys[key_found_index]->twins.push_back(std::move(key));
+                keys[key_found_index].reset();
+                keys[key_found_index] = std::move(key);
                 return BTree::find_root_node(this, parent);
             }
 
             Node *node = this;
 
             // try to find the key in the entire tree
-            btree::Key *found_key = nullptr;
+            /*btree::Key *found_key = nullptr;
             search_key(node, key.get(), found_key);
             if(found_key != nullptr) {
                 found_key->twins.push_back(std::move(key));
                 return BTree::find_root_node(this, parent);
             }
 
-            node = this;
+            node = this;*/
 
             if(is_leaf()) {
                 node = insert_key(std::move(key));
@@ -190,12 +192,12 @@ namespace kvdb {
                 }
             } while (!node->is_leaf());
             if(was_break) {
-                return BTree::find_root_node(node, node->parent);
-            }
-            if(node == nullptr) {
-                //return this;
                 return BTree::find_root_node(this, parent);
             }
+            /*if(node == nullptr) {
+                //return this;
+                return BTree::find_root_node(this, parent);
+            }*/
             Node *node1 = node->insert_key(std::move(key));
             return BTree::find_root_node(node1, node1->parent);
         }
@@ -234,7 +236,7 @@ namespace kvdb {
         }
 
         int Node::contains_key(const Key *key, int *found_key_index) {
-            return (*found_key_index = binary_search(key)) > -1 && *found_key_index < BTREE_MAX_DEGREE && keys[*found_key_index] != nullptr;
+            return (*found_key_index = binary_search(key)) > -1 && *found_key_index < BTREE_MAX_DEGREE && keys[*found_key_index] != nullptr && !keys[*found_key_index]->deleted;
         }
 
         void Node::search_key(Node *&node, const Key *key, Key *&found_key) {
@@ -245,8 +247,8 @@ namespace kvdb {
             if(i < node->keys_count() && key->hash == node->keys[i]->hash) {
                 if(!node->keys[i]->deleted) {
                     found_key = node->keys[i].get();
+                    return;
                 }
-                return;
             }
             if(node->is_leaf()) {
                 return;
@@ -286,7 +288,8 @@ namespace kvdb {
             if(found_key == nullptr) {
                 return BTree::find_root_node(found_node, found_node->parent);
             }
-            if(stream_tree != nullptr) {
+
+            /*if(stream_tree != nullptr) {
                 key->deleted = true;
                 if(!key->serialize_deleted(stream_tree)) {
                     return BTree::find_root_node(found_node, found_node->parent);
@@ -302,7 +305,8 @@ namespace kvdb {
                 if(was_break) {
                     return BTree::find_root_node(found_node, found_node->parent);
                 }
-            }
+            }*/
+
             std::vector<btree::Key *> found_keys{};
             found_keys_count(found_key, &found_keys);
             *count_keys_deleted = found_keys.size();

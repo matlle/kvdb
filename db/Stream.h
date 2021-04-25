@@ -29,6 +29,7 @@ namespace kvdb {
         FILE *file_ptr = nullptr;
         uint64_t total_bytes = 0;
         pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+        std::string path = std::string();
 
         Stream(const std::string &path, const char *mode);
         [[nodiscard]] bool seek(const uint32_t &pos) const;
@@ -42,6 +43,8 @@ namespace kvdb {
         [[nodiscard]] uint32_t read_uint() const;
         [[nodiscard]] uint64_t read_ulong() const;
         [[nodiscard]] std::string read_string(uint32_t &len) const;
+        bool close();
+        bool delete_file() const;
     };
 
 }
