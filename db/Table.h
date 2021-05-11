@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <memory>
 #include "../tree/BTree.h"
@@ -43,7 +44,7 @@ namespace kvdb {
 
         bool get_stream(const std::string &path, const char *mode=O_AWRITE);
         //std::vector<KeyValue> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
-        std::map<std::string, std::string> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
+        std::unordered_map<std::string, std::string> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
         btree::Key *has_key(const std::string &str_key) const;
         bool has_value(const btree::Key *key, const std::vector<std::string> &kv) const;
         bool has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<btree::Key *> keys) const;
@@ -62,7 +63,7 @@ namespace kvdb {
         explicit Table(const std::string &name, const std::string &db_path);
         kvdb::Status process_action(int8_t action, std::vector<std::vector<std::string>> &key_values);
         //static void display_found_rows(const std::vector<std::vector<KeyValue>> &found_rows);
-        static void display_found_rows(const std::vector<std::map<std::string, std::string>> &found_rows);
+        static void display_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows);
         bool open();
         static bool create_dir(const char *dir_name);
         Row *get_row(const std::string &row_id, bool create_if_not_exists=true);

@@ -83,9 +83,8 @@ namespace kvdb {
         return true;
     }
 
-    std::map<std::string, std::string> Row::get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const {
-        //std::vector<KeyValue> data{};
-        std::map<std::string, std::string> data{};
+    std::unordered_map<std::string, std::string> Row::get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const {
+        std::unordered_map<std::string, std::string> data{};
 
         std::vector<btree::Key *> keys{};
         if(!has_keys_values(key_values, keys)) {
@@ -99,14 +98,11 @@ namespace kvdb {
 
         uint32_t len = 0;
         while((len = stream_data->read_uint()) > 0) {
-            //KeyValue keyValue;
             std::string key = stream_data->read_string(len);
             std::string value = std::string();
             if(!key.empty() && (len = stream_data->read_uint()) > 0) {
                 value = stream_data->read_string(len);
             }
-            //data.push_back(keyValue);
-            //data.insert(std::make_pair(key, value));
             data[key] = value;
         }
         if(!stream_data->seek_end()) {
@@ -331,8 +327,7 @@ namespace kvdb {
 
             status = kvdb::OK;
         } else if(action == Action::GET) {
-            //std::vector<std::vector<KeyValue>> found_rows{};
-            std::vector<std::map<std::string, std::string>> found_rows{};
+            std::vector<std::unordered_map<std::string, std::string>> found_rows{};
             std::vector<std::string> fields{};
 
             if(rows.empty()) {
@@ -344,7 +339,7 @@ namespace kvdb {
 
             std::map<std::string, std::unique_ptr<Row>>::iterator it;
             for(it = rows.begin(); it != rows.end(); it++) {
-                std::map<std::string, std::string> data = it->second->get_data(key_values, fields);
+                std::unordered_map<std::string, std::string> data = it->second->get_data(key_values, fields);
                 if(!data.empty()) {
                     found_rows.push_back(data);
                 }
@@ -375,27 +370,12 @@ namespace kvdb {
             } else {
                 PRINT("%u row%s deleted", deleted_rows_count, (deleted_rows_count > 1 ? "s" : ""));
             }
-
-            /*std::vector<btree::Key *> keys_found{};
-            uint32_t count_keys_deleted = 0;
-            for(const auto &kv: key_values) {
-                if(kv.size() <= 1) {
-                    continue;
-                }
-                std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0), kv.at(1));
-                tree->root = btree::Node::delete_key(tree->root, key.get(), &count_keys_deleted, stream_tree.get());
-            }
-            if(count_keys_deleted == 0) {
-                PRINT("%s", "No rows deleted");
-            } else {
-                PRINT("%u row%s deleted", count_keys_deleted, (count_keys_deleted > 1 ? "s" : ""));
-            }*/
             status = kvdb::OK;
         }
         return status;
     }
 
-    void Table::display_found_rows(const std::vector<std::map<std::string, std::string>> &found_rows) {
+    void Table::display_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows) {
         if(found_rows.empty()) {
             return;
         }
@@ -405,28 +385,22 @@ namespace kvdb {
             if(found_row.empty()) {
                 continue;
             }
-            row = "{";
 
-            std::map<std::string, std::string>::iterator it;
+            std::unordered_map<std::string, std::string>::iterator it;
             size_t j = 0;
-            for(it = found_row.begin(); it != found_row.end(); it++) {
-                row += it->first + ": ";
-                row += it->second;
+            std::string s = std::string();
+            for(it = found_row.begin(); it != found_row.end(); ++it) {
+                s = it->first + ": " + it->second;
+                row.insert(0, s);
                 if(j + 1 < found_row.size()) {
-                    row += ", ";
+                    row.insert(0, ", ");
                 }
                 j++;
             }
 
-            /*for(size_t j = 0; j < found_row.size(); j++) {
-                row += found_row.at(j).key + ": ";
-                row += found_row.at(j).value;
-                if(j + 1 < found_row.size()) {
-                    row += ", ";
-                }
-            }*/
-
             row += "}";
+            row.insert(0, "{");
+
             if(row.length() > 2) {
                 if(!str.empty()) {
                     str += "\n";
