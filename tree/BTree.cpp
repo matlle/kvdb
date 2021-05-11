@@ -28,15 +28,16 @@ namespace kvdb {
             while((hash = stream_tree->read_ulong()) > 0) {
                 std::unique_ptr<Key> key = std::make_unique<Key>();
                 key->hash = hash;
-                key->value->stream_data_pos = stream_tree->read_uint();
-                key->deleted = stream_tree->read_byte() != 0;
+                key->stream_data_pos = stream_tree->read_uint();
+                tree->root = tree->root->insert_key_to_leaf(std::move(key));
+                /*key->deleted = stream_tree->read_byte() != 0;
                 stream_tree->total_bytes += 13;
                 key->value->stream_tree_pos = stream_tree->total_bytes - 13;
                 if(key->deleted) {
                     //
                 } else {
                     tree->root = tree->root->insert_key_to_leaf(std::move(key));
-                }
+                }*/
             }
             return tree;
         }
