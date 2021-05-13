@@ -3,6 +3,7 @@
  */
 #include <sys/stat.h>
 #include <cstring>
+#include <algorithm>
 #include "Table.h"
 #include "../cli/Cli.h"
 #include "../utils/log.hpp"
@@ -31,34 +32,51 @@ namespace kvdb {
             return nullptr;
         }
         action->table_name = words.at(0);
-        words = Cli::split_string(words.at(1), '(');
-        if(words.empty() || words.size() <= 1) {
+        std::vector<std::string> words1 = Cli::split_string(words.at(1), '(');
+        if(words1.empty() || words1.size() <= 1) {
             return nullptr;
         }
-        action->action = Action::get_action(words.at(0));
-        std::string action_fields = words.at(1).substr(0, words.at(1).size() - 1);
+        action->op = Action::get_action(words1.at(0));
+        std::string action_fields = words1.at(1).substr(0, words1.at(1).size() - 1);
         std::vector<std::string> fields = Cli::split_string(action_fields, ',');
         for(const auto &i : fields) {
             std::vector<std::string> field = Cli::split_string(i, '=');
-            action->key_values.push_back(field);
+            if(field.size() > 1 && !field.at(0).empty() && !field.at(1).empty()) {
+                action->key_values.push_back(field);
+            }
+        }
+        if(words.size() >= 3) {
+            std::string criteria = std::string();
+            size_t i = 0;
+            while(words.at(2).at(i) != '(') {
+                criteria += words.at(2).at(i);
+                i++;
+            }
+            i++;
+            if(criteria == "order_by") {
+                bool flag = false;
+                while(words.at(2).at(i) != ')') {
+                    if(words.at(2).at(i) == '=') {
+                        flag = true;
+                        break;
+                    }
+                    action->order_by += words.at(2).at(i);
+                    i++;
+                }
+                if(flag) {
+                    i++;
+                    std::string order = std::string();
+                    while(words.at(2).at(i) != ')') {
+                        order += words.at(2).at(i);
+                        i++;
+                    }
+                    if(order == "desc") {
+                        action->order = order;
+                    }
+                }
+            }
         }
         return action;
-    }
-
-    std::string Action::get_key_values_str(const std::vector<std::vector<std::string>> &key_values) {
-        std::string str = std::string();
-        for(size_t i = 0; i < key_values.size(); i++) {
-            if(key_values.at(i).size() <= 1) {
-                continue;
-            }
-            str += key_values.at(i).at(0);
-            str += "=";
-            str += key_values.at(i).at(1);
-            if(i + 1 < key_values.size()) {
-                str += "&";
-            }
-        }
-        return str;
     }
 
     Row::Row(const std::string &row_id) {
@@ -86,9 +104,11 @@ namespace kvdb {
     std::unordered_map<std::string, std::string> Row::get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const {
         std::unordered_map<std::string, std::string> data{};
 
-        std::vector<btree::Key *> keys{};
-        if(!has_keys_values(key_values, keys)) {
-            return data;
+        if(!key_values.empty()) {
+            std::vector<btree::Key *> keys{};
+            if(!has_keys_values(key_values, keys)) {
+                return data;
+            }
         }
 
         if(!stream_data->seek(0)) {
@@ -207,11 +227,35 @@ namespace kvdb {
 
     btree::Key *Row::has_key(const std::string &str_key) const {
         btree::Key *found_key = nullptr;
-        std::unique_ptr<btree::Key> key = std::make_unique<kvdb::btree::Key>(str_key);
+        std::unique_ptr<btree::Key> key = std::make_unique<btree::Key>(str_key);
         btree::Node *root_node = tree->root;
         btree::Node::search_key(root_node, key.get(), found_key);
         tree->root = btree::BTree::find_root_node(root_node, root_node->parent);
         return found_key;
+    }
+
+    void Row::sort_found_rows(std::vector<std::unordered_map<std::string, std::string>> &found_rows, std::unique_ptr<Action> action) {
+        // insertion sort
+        int i = 1;
+        while(i < found_rows.size()) {
+            int j = i;
+            while(j > 0) {
+                if(found_rows.at(j - 1).find(action->order_by) == found_rows.at(j - 1).end()
+                   || found_rows.at(j).find(action->order_by) == found_rows.at(j).end()) {
+                    std::swap(found_rows.at(j), found_rows.at(j - 1));
+                } else {
+                    if(action->order == "asc") {
+                        if(found_rows.at(j - 1)[action->order_by] > found_rows.at(j)[action->order_by]) {
+                            std::swap(found_rows.at(j), found_rows.at(j - 1));
+                        }
+                    } else if(found_rows.at(j - 1)[action->order_by] < found_rows.at(j)[action->order_by]) {
+                        std::swap(found_rows.at(j), found_rows.at(j - 1));
+                    }
+                }
+                j--;
+            }
+            i++;
+        }
     }
 
     Table::Table(const std::string &name, const std::string &db_path) {
@@ -278,12 +322,12 @@ namespace kvdb {
         return row;
     }
 
-    kvdb::Status Table::process_action(int8_t action, std::vector<std::vector<std::string>> &key_values) {
+    kvdb::Status Table::process_action(std::unique_ptr<Action> action) {
         kvdb::Status status = kvdb::ERROR;
-        if(action == Action::PUT) {
+        if(action->op == Action::PUT) {
             std::string row_id = std::string();
             bool has_not_id_key = true;
-            for(const auto &key_value : key_values) {
+            for(const auto &key_value : action->key_values) {
                 if(!key_value.empty() && key_value.at(0) == "id") {
                     row_id = key_value.at(1);
                     has_not_id_key = false;
@@ -296,12 +340,12 @@ namespace kvdb {
 
             Row *row = get_row(row_id);
             if(row == nullptr) {
-                ERROR("%s", "failed to insert row");
+                ERROR("failed to insert row", nullptr);
                 return kvdb::ERROR;
             }
 
             uint32_t bytes_written = 0, stream_data_pos = 0;
-            for(const auto &kv : key_values) {
+            for(const auto &kv : action->key_values) {
                 if(kv.size() <= 1) {
                     continue;
                 }
@@ -318,7 +362,7 @@ namespace kvdb {
                 bytes_written = row->stream_data->write_string(kv.at(0));
                 bytes_written += row->stream_data->write_string(kv.at(1));
                 stream_data_pos = row->stream_data->total_bytes - bytes_written;
-                std::unique_ptr<kvdb::btree::Key> key = std::make_unique<kvdb::btree::Key>(kv.at(0));
+                std::unique_ptr<btree::Key> key = std::make_unique<btree::Key>(kv.at(0));
                 key->stream_data_pos = stream_data_pos;
                 if(key->serialize(row->stream_tree.get())) {
                     row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
@@ -326,7 +370,7 @@ namespace kvdb {
             }
 
             status = kvdb::OK;
-        } else if(action == Action::GET) {
+        } else if(action->op == Action::GET) {
             std::vector<std::unordered_map<std::string, std::string>> found_rows{};
             std::vector<std::string> fields{};
 
@@ -339,27 +383,39 @@ namespace kvdb {
 
             std::map<std::string, std::unique_ptr<Row>>::iterator it;
             for(it = rows.begin(); it != rows.end(); it++) {
-                std::unordered_map<std::string, std::string> data = it->second->get_data(key_values, fields);
+                std::unordered_map<std::string, std::string> data = it->second->get_data(action->key_values, fields);
                 if(!data.empty()) {
                     found_rows.push_back(data);
                 }
             }
 
             if(found_rows.empty()) {
-                PRINT("%s", "No rows found");
+                PRINT("No rows found", nullptr);
             } else {
-                PRINT("(%u) row%s found", found_rows.size(), (found_rows.size() > 1 ? "s" : ""));
-                if(!found_rows.empty()) {
-                    display_found_rows(found_rows);
+                if(!action->order_by.empty()) {
+                    Row::sort_found_rows(found_rows, std::move(action));
                 }
+                PRINT("(%u) row%s found", found_rows.size(), (found_rows.size() > 1 ? "s" : ""));
+                display_found_rows(found_rows);
             }
             status = kvdb::OK;
-        } else if(action == Action::DELETE) {
+        } else if(action->op == Action::DELETE) {
+            if(rows.empty()) {
+                int i = 1;
+                while(get_row(std::to_string(i), false) != nullptr) {
+                    i++;
+                }
+            }
             uint32_t deleted_rows_count = 0;
             std::vector<btree::Key *> keys{};
             for(auto it = rows.cbegin(), next_it = it; it != rows.cend(); it = next_it) {
                 ++next_it;
-                if(it->second->has_keys_values(key_values, keys) && it->second->delete_row()) {
+                if(!action->key_values.empty()) {
+                    if(it->second->has_keys_values(action->key_values, keys) && it->second->delete_row()) {
+                        deleted_rows_count++;
+                        rows.erase(it);
+                    }
+                } else if(it->second->delete_row()) {
                     deleted_rows_count++;
                     rows.erase(it);
                 }
@@ -406,10 +462,10 @@ namespace kvdb {
                     str += "\n";
                 }
                 str += row;
+                row = "";
             }
         }
         PRINT("%s", str.c_str());
     }
-
 
 } // namespace kvdb
