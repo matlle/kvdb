@@ -11,6 +11,7 @@ namespace kvdb {
 
     Stream::Stream(const std::string &path, const char *mode) {
         this->path = path;
+        this->mode = mode;
         if(this->path.empty()) {
             ERROR("%s", "stream path empty");
             return;
@@ -35,10 +36,7 @@ namespace kvdb {
     }
 
     bool Stream::seek(const uint32_t &pos) const {
-        if(fseek(file_ptr, pos, SEEK_SET) != 0) {
-            return false;
-        }
-        return true;
+        return fseek(file_ptr, pos, SEEK_SET) == 0;
     }
 
     bool Stream::seek_end() {
@@ -67,6 +65,22 @@ namespace kvdb {
         total_bytes += 1;
         UNLOCK();
         return 1;
+    }
+
+    uint32_t Stream::write_ushort(const uint16_t &v) {
+        if(file_ptr == nullptr) {
+            return 0;
+        }
+        byte buf[2] = {0};
+        buf[0] = (v >> 8) & 0xff;
+        buf[1] = v & 0xff;
+        LOCK();
+        if((fwrite(buf, sizeof(byte), 2, file_ptr) != 2) || fflush(file_ptr) != 0) {
+            UNLOCK();
+        }
+        total_bytes += 2;
+        UNLOCK();
+        return 2;
     }
 
     uint32_t Stream::write_uint(const uint32_t &v) {
@@ -132,16 +146,27 @@ namespace kvdb {
         return (uint8_t)buf[0];
     }
 
+    uint16_t Stream::read_ushort() const {
+        byte buf[2] = {0};
+        if(fread(buf, sizeof(byte), 2, file_ptr) != 2) {
+            return 0;
+        }
+        uint16_t d = 0;
+        d = (d << 8) + (uint16_t)buf[0];
+        d = (d << 8) + (uint16_t)buf[1];
+        return d;
+    }
+
     uint32_t Stream::read_uint() const {
         byte buf[4] = {0};
         if(fread(buf, sizeof(byte), 4, file_ptr) != 4) {
             return 0;
         }
         uint32_t d = 0;
-        d = (d << 4) + (uint32_t)buf[0];
-        d = (d << 4) + (uint32_t)buf[1];
-        d = (d << 4) + (uint32_t)buf[2];
-        d = (d << 4) + (uint32_t)buf[3];
+        d = (d << 8) + (uint32_t)buf[0];
+        d = (d << 8) + (uint32_t)buf[1];
+        d = (d << 8) + (uint32_t)buf[2];
+        d = (d << 8) + (uint32_t)buf[3];
         return d;
     }
 
@@ -163,30 +188,30 @@ namespace kvdb {
     }
 
     std::string Stream::read_string(uint32_t &len) const {
-        std::string v = std::string();
+        std::string str = std::string();
         byte *buf = nullptr;
         while((int32_t)len - 255 > 0) {
             len -= 255;
             buf = new (std::nothrow) byte[255]();
             if(fread(buf, sizeof(byte), 255, file_ptr) != 255) {
-                v = std::string();
+                str = std::string();
                 break;
             }
             std::string t((char *)buf, 255);
-            v += t;
+            str += t;
         }
         if(len > 0) {
             buf = new (std::nothrow) byte[len]();
             size_t r = fread(buf, sizeof(byte), len, file_ptr);
             if(r == 0) {
-                v = std::string();
+                str = std::string();
             } else {
                 std::string t((char *)buf, len);
-                v += t;
+                str += t;
             }
         }
         delete[] buf;
-        return v;
+        return str;
     }
 
     bool Stream::close() {
@@ -205,6 +230,11 @@ namespace kvdb {
         }
         ERROR("failed to delete file %s", path.c_str());
         return false;
+    }
+
+    bool Stream::file_exists(const char *file_path) {
+        struct stat buf{};
+        return (stat(file_path, &buf) == 0);
     }
 
 }

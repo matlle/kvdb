@@ -14,7 +14,6 @@ namespace kvdb {
     namespace btree {
 
         class BTree {
-        private:
         public:
             Node *root = nullptr;
 

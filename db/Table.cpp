@@ -10,8 +10,6 @@
 
 namespace kvdb {
 
-    uint32_t Table::primary_key = 1;
-
     int8_t Action::get_action(const std::string &str) {
         if (str == "put") {
             return PUT;
@@ -283,42 +281,81 @@ namespace kvdb {
         if(!create_dir(path.c_str())) {
             return false;
         }
-        if(stream_info == nullptr) {
-            stream_info = std::make_unique<Stream>(path + "/info", O_READONLY);
+        if(stream_meta == nullptr) {
+            stream_meta = std::make_unique<Stream>(path + "/meta", O_AWRITE);
         }
         return opened = true;
     }
 
-    Row *Table::get_row(const std::string &row_id, bool create_if_not_exists) {
-        Row *row = nullptr;
-        auto it = rows.find(row_id);
+    std::unique_ptr<Row> Table::get_row(const std::string &row_id, bool create_if_not_exists) {
+        bool stream_row_does_not_exists = true;
+        if(Stream::file_exists(std::string(path + "/r" + std::to_string(btree::Node::hash_key("/r" + row_id))).c_str())) {
+            stream_row_does_not_exists = false;
+        }
+        std::unique_ptr<Row> row = std::make_unique<Row>(row_id);
+        if(!row->get_stream(path, create_if_not_exists ? O_AWRITE : O_READONLY)) {
+            row.reset();
+            return nullptr;
+        }
+        if(!row->stream_tree->seek(0)) {
+            ERROR("can't seek to start of stream_tree", nullptr);
+            return nullptr;
+        }
+        row->tree = btree::BTree::deserialize(row->stream_tree.get());
+        if(row->tree == nullptr) {
+            ERROR("failed to get tree object", nullptr);
+            return nullptr;
+        }
+        if(!row->stream_tree->seek_end()) {
+            ERROR("can't seek_end stream_tree", nullptr);
+            return nullptr;
+        }
+
+        if(stream_row_does_not_exists) {
+            if(stream_meta != nullptr) {
+                if(strcmp(stream_meta->mode, O_READONLY) == 0) {
+                    stream_meta.reset();
+                    stream_meta = std::make_unique<Stream>(path + "/meta", O_AWRITE);
+                    if(!stream_meta->opened()) {
+                        ERROR("stream_meta not opened", nullptr);
+                        return nullptr;
+                    }
+                }
+                uint32_t bw = stream_meta->write_string(row_id);
+            }
+        }
+
+        /*auto it = rows.find(row_id);
         if(it == rows.end()) {
-            std::unique_ptr<Row> row_info = std::make_unique<Row>(row_id);
-            if(!row_info->get_stream(path, create_if_not_exists ? O_AWRITE : O_READONLY)) {
-                row_info.reset();
+            std::unique_ptr<Row> new_row = std::make_unique<Row>(row_id);
+            if(!new_row->get_stream(path, create_if_not_exists ? O_AWRITE : O_READONLY)) {
+                new_row.reset();
                 return nullptr;
             }
-            if(!row_info->stream_tree->seek(0)) {
-                ERROR("%s", "can't seek to start of stream_tree");
+            if(!new_row->stream_tree->seek(0)) {
+                ERROR("can't seek to start of stream_tree", nullptr);
                 return nullptr;
             }
-            row_info->tree = btree::BTree::deserialize(row_info->stream_tree.get());
-            if(row_info->tree == nullptr) {
-                ERROR("%s", "failed to get tree object");
+            new_row->tree = btree::BTree::deserialize(new_row->stream_tree.get());
+            if(new_row->tree == nullptr) {
+                ERROR("failed to get tree object", nullptr);
                 return nullptr;
             }
-            if(!row_info->stream_tree->seek_end()) {
-                ERROR("%s", "can't seek_end stream_tree");
+            if(!new_row->stream_tree->seek_end()) {
+                ERROR("can't seek_end stream_tree", nullptr);
                 return nullptr;
             }
-            rows.insert(std::pair<std::string, std::unique_ptr<Row>>(row_id, std::move(row_info)));
+            rows.insert(std::pair<std::string, std::unique_ptr<Row>>(row_id, std::move(new_row)));
             it = rows.find(row_id);
             if(it != rows.end()) {
                 row = it->second.get();
+                if(stream_meta != nullptr) {
+                    stream_meta->write_ushort((uint16_t)btree::Node::hash_key("/r" + row_id));
+                }
             }
         } else {
             row = it->second.get();
-        }
+        }*/
         return row;
     }
 
@@ -326,19 +363,29 @@ namespace kvdb {
         kvdb::Status status = kvdb::ERROR;
         if(action->op == Action::PUT) {
             std::string row_id = std::string();
-            bool has_not_id_key = true;
+            bool has_not_id = true;
             for(const auto &key_value : action->key_values) {
                 if(!key_value.empty() && key_value.at(0) == "id") {
                     row_id = key_value.at(1);
-                    has_not_id_key = false;
+                    has_not_id = false;
                     break;
                 }
             }
-            if(has_not_id_key) {
-                row_id = std::to_string(primary_key++);
+            if(has_not_id) {
+                //row_id = std::to_string(primary_key++);
+                if(stream_meta != nullptr) {
+                    int64_t number_of_bytes = ftell(stream_meta->file_ptr);
+                    max_id = (number_of_bytes / 2) + 1;
+                }
+                row_id = std::to_string(max_id);
             }
 
-            Row *row = get_row(row_id);
+            std::unique_ptr<Row> row = nullptr;
+            if(recent_row != nullptr && recent_row->row_id == row_id) {
+                row = std::move(recent_row);
+            } else {
+                row = get_row(row_id);
+            }
             if(row == nullptr) {
                 ERROR("failed to insert row", nullptr);
                 return kvdb::ERROR;
@@ -369,12 +416,46 @@ namespace kvdb {
                 }
             }
 
+            recent_row = std::move(row);
             status = kvdb::OK;
         } else if(action->op == Action::GET) {
             std::vector<std::unordered_map<std::string, std::string>> found_rows{};
             std::vector<std::string> fields{};
 
-            if(rows.empty()) {
+            if(stream_meta == nullptr) {
+                ERROR("stream_meta null", nullptr);
+                return status;
+            }
+            if(strcmp(stream_meta->mode, O_AWRITE) == 0) {
+                stream_meta.reset();
+                stream_meta = std::make_unique<Stream>(path + "/meta", O_READONLY);
+                if(!stream_meta->opened() || !stream_meta->seek(0)) {
+                    ERROR("stream_meta not opened", nullptr);
+                    return status;
+                }
+            }
+            uint32_t slen = 0;
+            std::string row_id = std::string();
+            std::string stream_tree_name = std::string();
+            std::string stream_data_name = std::string();
+            while((slen = stream_meta->read_uint()) > 0 && !(row_id = stream_meta->read_string(slen)).empty()) {
+                stream_tree_name = path + "/" + std::to_string(btree::Node::hash_key("/r" + row_id));
+                stream_data_name = path + "/r" + row_id;
+                if(!Stream::file_exists(stream_tree_name.c_str()) || !Stream::file_exists(stream_data_name.c_str())) {
+                    continue;
+                }
+                std::unique_ptr<Row> row = get_row(row_id, false);
+                if(row == nullptr) {
+                    continue;
+                }
+                std::unordered_map<std::string, std::string> data = row->get_data(action->key_values, fields);
+                row.reset();
+                if(!data.empty()) {
+                    found_rows.push_back(data);
+                }
+            }
+
+            /*if(rows.empty()) {
                 int i = 1;
                 while(get_row(std::to_string(i), false) != nullptr) {
                     i++;
@@ -387,7 +468,7 @@ namespace kvdb {
                 if(!data.empty()) {
                     found_rows.push_back(data);
                 }
-            }
+            }*/
 
             if(found_rows.empty()) {
                 PRINT("No rows found", nullptr);
@@ -400,7 +481,7 @@ namespace kvdb {
             }
             status = kvdb::OK;
         } else if(action->op == Action::DELETE) {
-            if(rows.empty()) {
+            /*if(rows.empty()) {
                 int i = 1;
                 while(get_row(std::to_string(i), false) != nullptr) {
                     i++;
@@ -419,8 +500,9 @@ namespace kvdb {
                     deleted_rows_count++;
                     rows.erase(it);
                 }
-            }
+            }*/
 
+            uint32_t deleted_rows_count = 0;
             if(deleted_rows_count == 0) {
                 PRINT("%s", "No rows deleted");
             } else {

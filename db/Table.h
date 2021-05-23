@@ -50,19 +50,21 @@ namespace kvdb {
 
     class Table {
     public:
-        static uint32_t primary_key;
+        //static uint32_t primary_key;
+        uint32_t max_id = 0;
         std::string name = std::string();
         std::string path = std::string();
         bool opened = false;
-        std::map<std::string, std::unique_ptr<Row>> rows{};
-        std::unique_ptr<Stream> stream_info = nullptr;
+        //std::map<std::string, std::unique_ptr<Row>> rows{};
+        std::unique_ptr<Row> recent_row = nullptr;
+        std::unique_ptr<Stream> stream_meta = nullptr;
 
         explicit Table(const std::string &name, const std::string &db_path);
         kvdb::Status process_action(std::unique_ptr<Action> action);
         static void display_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows);
         bool open();
         static bool create_dir(const char *dir_name);
-        Row *get_row(const std::string &row_id, bool create_if_not_exists=true);
+        std::unique_ptr<Row> get_row(const std::string &row_id, bool create_if_not_exists=true);
     };
 
 } // namespace kvdb
