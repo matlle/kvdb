@@ -30,21 +30,25 @@ namespace kvdb {
         uint64_t total_bytes = 0;
         pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
         std::string path = std::string();
+        const char *mode = O_READONLY;
 
         Stream(const std::string &path, const char *mode);
         [[nodiscard]] bool seek(const uint32_t &pos) const;
         [[nodiscard]] bool seek_end();
         [[nodiscard]] bool opened() const;
         [[nodiscard]] uint8_t write_byte(const uint8_t &v);
+        uint32_t write_ushort(const uint16_t &v);
         [[nodiscard]] uint32_t write_uint(const uint32_t &v);
         [[nodiscard]] uint32_t write_ulong(const uint64_t &v);
         [[nodiscard]] uint32_t write_string(const std::string &str, bool with_length=true);
         [[nodiscard]] uint8_t read_byte() const;
+        [[nodiscard]] uint16_t read_ushort() const;
         [[nodiscard]] uint32_t read_uint() const;
         [[nodiscard]] uint64_t read_ulong() const;
         [[nodiscard]] std::string read_string(uint32_t &len) const;
         bool close();
         bool delete_file() const;
+        static bool file_exists(const char *path);
     };
 
 }
