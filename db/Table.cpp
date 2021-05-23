@@ -263,6 +263,8 @@ namespace kvdb {
             if(it != rows.end()) {
                 row = it->second.get();
             }
+        } else {
+            row = it->second.get();
         }
         return row;
     }
@@ -295,7 +297,8 @@ namespace kvdb {
                 }
                 kvdb::btree::Key *found_key = row->has_key(kv.at(0));
                 if(kv.at(0) != "id" && found_key != nullptr) {
-                    row->tree->root = btree::Node::delete_key(row->tree->root, found_key);
+                    //btree::Node *root_node = row->tree->root;
+                    //row->tree->root = btree::Node::delete_key(root_node, found_key);
                 }
                 uint32_t bytes_written = row->stream_data->write_string(kv.at(0));
                 bytes_written += row->stream_data->write_string(kv.at(1));
