@@ -8,7 +8,7 @@
 #include <pthread.h>
 
 #define O_READONLY "rb"
-#define O_AWRITE "ab+"
+#define O_APPEND "ab+"
 
 #define LOCK() \
 if(pthread_mutex_lock(&mutex)) { \

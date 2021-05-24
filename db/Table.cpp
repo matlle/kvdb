@@ -82,17 +82,17 @@ namespace kvdb {
     }
 
     bool Row::get_stream(const std::string &path, const char *mode) {
-        stream_data = std::make_unique<Stream>(path + "/r" + row_id, mode);
+        stream_data = std::make_unique<Stream>(path + "r" + row_id, mode);
         if(!stream_data->opened()) {
-            if(strcmp(mode, O_AWRITE) == 0) {
-                ERROR("%s", "can't open stream_data to awrite");
+            if(strcmp(mode, O_APPEND) == 0) {
+                ERROR("%s", "can't open stream_data to append");
             }
             return false;
         }
-        stream_tree = std::make_unique<Stream>(path + "/" + std::to_string(btree::Node::hash_key("/r" + row_id)), mode);
+        stream_tree = std::make_unique<Stream>(path + std::to_string(btree::Node::hash_key("r" + row_id)), mode);
         if(!stream_tree->opened()) {
-            if(strcmp(mode, O_AWRITE) == 0) {
-                ERROR("%s", "can't open stream_tree to awrite");
+            if(strcmp(mode, O_APPEND) == 0) {
+                ERROR("%s", "can't open stream_tree to append");
             }
             return false;
         }
@@ -110,7 +110,7 @@ namespace kvdb {
         }
 
         if(!stream_data->seek(0)) {
-            ERROR("%", "failed to seek at start of stream_data");
+            ERROR("failed to seek at beginning of stream_data", nullptr);
             return data;
         }
 
@@ -258,7 +258,7 @@ namespace kvdb {
 
     Table::Table(const std::string &name, const std::string &db_path) {
         this->name = name;
-        this->path = db_path + "/" + name;
+        this->path = db_path + "/" + name + "/";
     }
 
     bool Table::create_dir(const char *dir_name) {
@@ -282,18 +282,19 @@ namespace kvdb {
             return false;
         }
         if(stream_meta == nullptr) {
-            stream_meta = std::make_unique<Stream>(path + "/meta", O_AWRITE);
+            stream_meta = std::make_unique<Stream>(path + "meta", O_APPEND);
         }
         return opened = true;
     }
 
     std::unique_ptr<Row> Table::get_row(const std::string &row_id, bool create_if_not_exists) {
         bool stream_row_does_not_exists = true;
-        if(Stream::file_exists(std::string(path + "/r" + std::to_string(btree::Node::hash_key("/r" + row_id))).c_str())) {
+        //if(Stream::file_exists(std::string(path + "/r" + std::to_string(btree::Node::hash_key("/r" + row_id))).c_str())) {
+        if(Stream::file_exists(std::string(path + std::to_string(btree::Node::hash_key("r" + row_id))).c_str())) {
             stream_row_does_not_exists = false;
         }
         std::unique_ptr<Row> row = std::make_unique<Row>(row_id);
-        if(!row->get_stream(path, create_if_not_exists ? O_AWRITE : O_READONLY)) {
+        if(!row->get_stream(path, create_if_not_exists ? O_APPEND : O_READONLY)) {
             row.reset();
             return nullptr;
         }
@@ -315,13 +316,14 @@ namespace kvdb {
             if(stream_meta != nullptr) {
                 if(strcmp(stream_meta->mode, O_READONLY) == 0) {
                     stream_meta.reset();
-                    stream_meta = std::make_unique<Stream>(path + "/meta", O_AWRITE);
+                    stream_meta = std::make_unique<Stream>(path + "meta", O_APPEND);
                     if(!stream_meta->opened()) {
                         ERROR("stream_meta not opened", nullptr);
                         return nullptr;
                     }
                 }
-                uint32_t bw = stream_meta->write_string(row_id);
+                //uint32_t bw = stream_meta->write_string(row_id);
+                uint32_t bw = stream_meta->write_ushort(btree::Node::hash_key("r" + row_id));
             }
         }
         return row;
@@ -340,8 +342,7 @@ namespace kvdb {
                 }
             }
             if(has_not_id) {
-                //row_id = std::to_string(primary_key++);
-                if(stream_meta != nullptr) {
+                if(stream_meta != nullptr && stream_meta->seek_end()) {
                     int64_t number_of_bytes = ftell(stream_meta->file_ptr);
                     max_id = (number_of_bytes / 2) + 1;
                 }
@@ -360,6 +361,22 @@ namespace kvdb {
             }
 
             uint32_t bytes_written = 0, stream_data_pos = 0;
+            int64_t number_of_bytes = 0;
+            std::unique_ptr<btree::Key> key = nullptr;
+            if(has_not_id) {
+                bytes_written = row->stream_data->write_string("id");
+                bytes_written += row->stream_data->write_string(row_id);
+                stream_data_pos = row->stream_data->total_bytes - bytes_written;
+                key = std::make_unique<btree::Key>("id");
+                key->stream_data_pos = stream_data_pos;
+                number_of_bytes = ftell(row->stream_tree->file_ptr);
+                if(number_of_bytes == 0) {
+                    number_of_bytes = row->stream_tree->write_string(row_id);
+                }
+                if(key->serialize(row->stream_tree.get())) {
+                    row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
+                }
+            }
             for(const auto &kv : action->key_values) {
                 if(kv.size() <= 1) {
                     continue;
@@ -377,8 +394,12 @@ namespace kvdb {
                 bytes_written = row->stream_data->write_string(kv.at(0));
                 bytes_written += row->stream_data->write_string(kv.at(1));
                 stream_data_pos = row->stream_data->total_bytes - bytes_written;
-                std::unique_ptr<btree::Key> key = std::make_unique<btree::Key>(kv.at(0));
+                key = std::make_unique<btree::Key>(kv.at(0));
                 key->stream_data_pos = stream_data_pos;
+                number_of_bytes = ftell(row->stream_tree->file_ptr);
+                if(number_of_bytes == 0) {
+                    number_of_bytes = row->stream_tree->write_string(row_id);
+                }
                 if(key->serialize(row->stream_tree.get())) {
                     row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
                 }
@@ -394,24 +415,43 @@ namespace kvdb {
                 ERROR("stream_meta null", nullptr);
                 return status;
             }
-            if(strcmp(stream_meta->mode, O_AWRITE) == 0) {
+            if(strcmp(stream_meta->mode, O_APPEND) == 0) {
                 stream_meta.reset();
-                stream_meta = std::make_unique<Stream>(path + "/meta", O_READONLY);
-                if(!stream_meta->opened() || !stream_meta->seek(0)) {
-                    ERROR("stream_meta not opened", nullptr);
+                stream_meta = std::make_unique<Stream>(path + "meta", O_READONLY);
+                if(!stream_meta->opened()) {
+                    ERROR("failed to open stream_meta to read", nullptr);
                     return status;
                 }
             }
+            if(!stream_meta->seek(0)) {
+                ERROR("failed to seek at beginning of stream_meta", nullptr);
+                return status;
+            }
             uint32_t slen = 0;
             std::string row_id = std::string();
-            std::string stream_tree_name = std::string();
-            std::string stream_data_name = std::string();
-            while((slen = stream_meta->read_uint()) > 0 && !(row_id = stream_meta->read_string(slen)).empty()) {
-                stream_tree_name = path + "/" + std::to_string(btree::Node::hash_key("/r" + row_id));
-                stream_data_name = path + "/r" + row_id;
-                if(!Stream::file_exists(stream_tree_name.c_str()) || !Stream::file_exists(stream_data_name.c_str())) {
+            std::string stream_tree_path = std::string();
+            std::string stream_data_path = std::string();
+            uint16_t stream_tree_id = 0;
+            while((stream_tree_id = stream_meta->read_ushort()) > 0) {
+                stream_tree_path = path + std::to_string(stream_tree_id);
+                if(!Stream::file_exists(stream_tree_path.c_str())) {
                     continue;
                 }
+                std::unique_ptr<Stream> stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
+                if(!stream_tree->opened() || !stream_tree->seek(0)) {
+                    ERROR("%s", "can't open stream_tree to read");
+                    continue;
+                }
+
+                if((slen = stream_tree->read_uint()) <= 0 || (row_id = stream_tree->read_string(slen)).empty()) {
+                    continue;
+                }
+
+                stream_data_path = path + "r" + row_id;
+                if(!Stream::file_exists(stream_data_path.c_str())) {
+                    continue;
+                }
+
                 std::unique_ptr<Row> row = get_row(row_id, false);
                 if(row == nullptr) {
                     continue;
@@ -421,6 +461,10 @@ namespace kvdb {
                 if(!data.empty()) {
                     found_rows.push_back(data);
                 }
+            }
+
+            if(!stream_meta->seek(0)) {
+                ERROR("failed to seek at beginning of stream_meta", nullptr);
             }
 
             /*if(rows.empty()) {

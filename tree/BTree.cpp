@@ -23,9 +23,13 @@ namespace kvdb {
             if(stream_tree == nullptr) {
                 return nullptr;
             }
+            uint32_t slen = 0;
+            std::string row_id = std::string();
+            slen = stream_tree->read_uint();
+            row_id = stream_tree->read_string(slen);
             std::unique_ptr<BTree> tree = std::make_unique<BTree>();
-            size_t hash = 0;
-            while((hash = stream_tree->read_ulong()) > 0) {
+            uint16_t hash = 0;
+            while((hash = stream_tree->read_ushort()) > 0) {
                 std::unique_ptr<Key> key = std::make_unique<Key>();
                 key->hash = hash;
                 key->stream_data_pos = stream_tree->read_uint();

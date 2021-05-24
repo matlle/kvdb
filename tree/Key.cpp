@@ -22,7 +22,7 @@ namespace kvdb {
             if(stream_tree == nullptr || !stream_tree->opened()) {
                 return false;
             }
-            uint32_t bytes_written = stream_tree->write_ulong(hash);
+            uint32_t bytes_written = stream_tree->write_ushort(hash);
             if(bytes_written == 0) {
                 return false;
             }

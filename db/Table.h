@@ -39,7 +39,7 @@ namespace kvdb {
 
         explicit Row(const std::string &row_id);
 
-        bool get_stream(const std::string &path, const char *mode=O_AWRITE);
+        bool get_stream(const std::string &path, const char *mode=O_APPEND);
         std::unordered_map<std::string, std::string> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
         btree::Key *has_key(const std::string &str_key) const;
         bool has_value(const btree::Key *key, const std::vector<std::string> &kv) const;
