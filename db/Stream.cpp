@@ -14,7 +14,7 @@ namespace kvdb {
         this->path = path;
         this->mode = mode;
         if(this->path.empty()) {
-            PRINT_ERROR("%s", "stream path empty");
+            PRINT_ERROR("stream path empty", nullptr);
             return;
         }
         struct stat st = {0};
@@ -248,5 +248,4 @@ namespace kvdb {
         return true;
     }
 
-}
-
+} // namespace kvdb

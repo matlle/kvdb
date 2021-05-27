@@ -690,7 +690,6 @@ namespace kvdb {
             return !is_leaf() && parent == nullptr;
         }
 
-
     } // namespace btree
 
 } // namespace kvdb
