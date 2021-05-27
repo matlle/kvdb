@@ -2,7 +2,7 @@
 
 
 * keys and values are char arrays.
-* BTREE data structure is used to store and retrive data.
+* BTREE data structure is used to store and retrieve data.
 * data are organized by databases and tables.
 * a database is a directory on the filesystem which can contains tables. Tables are represented by folders inside the
   database directory.
