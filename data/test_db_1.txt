@@ -1,0 +1,16 @@
+students.put(id=1,firstname=Alice,lastname=Smith,gender=Female,age=24,student_number=145,faculty=Law And Administration)
+students.put(id=2,firstname=Bob,lastname=Smith,gender=Male,age=25,student_number=372)
+students.put(id=3,firstname=Charlie,lastname=Smith,gender=Male,age=22,student_number=180)
+students.put(firstname=David,lastname=Dupont,gender=Male,age=23,student_number=555)
+students.put(firstname=Eric,lastname=Dwight,gender=Male,age=23,student_number=175,study=Computer Science)
+
+presidents.put(id=1,name=Barack,surname=Obama,country=USA,year=2008)
+presidents.put(id=2,name=Donald,surname=Trump,country=USA,year=2016)
+presidents.put(id=3,name=Joseph,surname=Biden,country=USA,year=2020,age=78)
+presidents.put(id=4name=Nicolas,surname=Sarkozy,country=France,year=2007,age=66)
+presidents.put(name=François,surname=Hollande,country=France,year=2012)
+presidents.put(name=Emmanuel,surname=Macron,country=France,year=2017)
+
+cars.put(brand=Mercedes,color=black,year=2021)
+cars.put(brand=BMW,color=blue,year=2016)
+cars.put(brand=Nissan,color=red,year=2018)
