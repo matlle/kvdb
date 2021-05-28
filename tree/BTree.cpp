@@ -4,9 +4,7 @@
 #include "BTree.h"
 #include "../utils/log.hpp"
 
-namespace kvdb {
-
-    namespace btree {
+namespace kvdb::btree {
 
         BTree::BTree() {
             root = new Node();
@@ -47,8 +45,6 @@ namespace kvdb {
         }
 
         BTree::~BTree() = default;
-
-    } // namespace btree
 
 } // namespace kvdb
 

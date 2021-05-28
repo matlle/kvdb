@@ -9,21 +9,17 @@
 #include "Node.h"
 #include "../db/Stream.h"
 
-namespace kvdb {
+namespace kvdb::btree {
 
-    namespace btree {
+    class BTree {
+    public:
+        Node *root = nullptr;
 
-        class BTree {
-        public:
-            Node *root = nullptr;
-
-            BTree();
-            ~BTree();
-            static Node *find_root_node(Node *node, Node *parent);
-            static std::unique_ptr<BTree> deserialize(Stream *stream_tree);
-        };
-
-    }
+        BTree();
+        ~BTree();
+        static Node *find_root_node(Node *node, Node *parent);
+        static std::unique_ptr<BTree> deserialize(Stream *stream_tree);
+    };
 
 }
 

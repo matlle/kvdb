@@ -135,13 +135,13 @@ namespace kvdb {
             return false;
         }
         if(!stream_data->seek(key->stream_data_pos)) {
-            ERROR("%", "failed to seek in stream_data");
+            ERROR("failed to seek in stream_data", nullptr);
             return false;
         }
 
         if((len = stream_data->read_uint()) <= 0) {
             if(!stream_data->seek_end()) {
-                ERROR("%", "failed to seek_end of stream_data");
+                ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
@@ -149,14 +149,14 @@ namespace kvdb {
         std::string str_key = stream_data->read_string(len);
         if(str_key.empty() || str_key != kv.at(0)) {
             if(!stream_data->seek_end()) {
-                ERROR("%", "failed to seek_end of stream_data");
+                ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
 
         if((len = stream_data->read_uint()) <= 0) {
             if(!stream_data->seek_end()) {
-                ERROR("%", "failed to seek_end of stream_data");
+                ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
@@ -165,7 +165,7 @@ namespace kvdb {
 
         if(str_value.empty() || str_value != kv.at(1)) {
             if(!stream_data->seek_end()) {
-                ERROR("%", "failed to seek_end of stream_data");
+                ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
@@ -258,27 +258,21 @@ namespace kvdb {
 
     Table::Table(const std::string &name, const std::string &db_path) {
         this->name = name;
-        this->path = db_path + "/" + name + "/";
+        path = db_path + std::string((const char *)PATH_SEPARATOR) + name + std::string((const char *)PATH_SEPARATOR);
     }
 
-    bool Table::create_dir(const char *dir_name) {
-        struct stat st = {0};
-        if(stat(dir_name, &st) == -1) {
-#ifdef __linux__
-            int r = mkdir(dir_name, 0777);
-            if(r != 0 && r != EEXIST)  {
-                ERROR("%s", "mkdir() failed");
-                return false;
-            }
-#else
-            _mkdir(dir_name);
-#endif
+    /*bool Table::create_folder(const char *folder_name) {
+        //boost::system::error_code ec;
+        //boost::filesystem::detail::create_directory(folder_name, &ec);
+        if(ec.value() != 0) {
+            ERROR("failed to create table folder: %s", ec.message().c_str());
+            return false;
         }
         return true;
-    }
+    }*/
 
     bool Table::open() {
-        if(!create_dir(path.c_str())) {
+        if(!Database::create_directory(path.c_str())) {
             return false;
         }
         if(stream_meta == nullptr) {
@@ -289,7 +283,6 @@ namespace kvdb {
 
     std::unique_ptr<Row> Table::get_row(const std::string &row_id, bool create_if_not_exists) {
         bool stream_row_does_not_exists = true;
-        //if(Stream::file_exists(std::string(path + "/r" + std::to_string(btree::Node::hash_key("/r" + row_id))).c_str())) {
         if(Stream::file_exists(std::string(path + std::to_string(btree::Node::hash_key("r" + row_id))).c_str())) {
             stream_row_does_not_exists = false;
         }
@@ -322,7 +315,6 @@ namespace kvdb {
                         return nullptr;
                     }
                 }
-                //uint32_t bw = stream_meta->write_string(row_id);
                 uint32_t bw = stream_meta->write_ushort(btree::Node::hash_key("r" + row_id));
             }
         }
@@ -408,9 +400,6 @@ namespace kvdb {
             recent_row = std::move(row);
             status = kvdb::OK;
         } else if(action->op == Action::GET) {
-            std::vector<std::unordered_map<std::string, std::string>> found_rows{};
-            std::vector<std::string> fields{};
-
             if(stream_meta == nullptr) {
                 ERROR("stream_meta null", nullptr);
                 return status;
@@ -427,19 +416,21 @@ namespace kvdb {
                 ERROR("failed to seek at beginning of stream_meta", nullptr);
                 return status;
             }
+            std::vector<std::unordered_map<std::string, std::string>> found_rows{};
+            std::vector<std::string> fields{};
             uint32_t slen = 0;
             std::string row_id = std::string();
             std::string stream_tree_path = std::string();
-            std::string stream_data_path = std::string();
+            std::unique_ptr<Stream> stream_tree = nullptr;
             uint16_t stream_tree_id = 0;
             while((stream_tree_id = stream_meta->read_ushort()) > 0) {
                 stream_tree_path = path + std::to_string(stream_tree_id);
                 if(!Stream::file_exists(stream_tree_path.c_str())) {
                     continue;
                 }
-                std::unique_ptr<Stream> stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
+                stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
                 if(!stream_tree->opened() || !stream_tree->seek(0)) {
-                    ERROR("%s", "can't open stream_tree to read");
+                    ERROR("can't open stream_tree to read", nullptr);
                     continue;
                 }
 
@@ -447,8 +438,7 @@ namespace kvdb {
                     continue;
                 }
 
-                stream_data_path = path + "r" + row_id;
-                if(!Stream::file_exists(stream_data_path.c_str())) {
+                if(!Stream::file_exists(std::string(path + "r" + row_id).c_str())) {
                     continue;
                 }
 
@@ -467,21 +457,6 @@ namespace kvdb {
                 ERROR("failed to seek at beginning of stream_meta", nullptr);
             }
 
-            /*if(rows.empty()) {
-                int i = 1;
-                while(get_row(std::to_string(i), false) != nullptr) {
-                    i++;
-                }
-            }
-
-            std::map<std::string, std::unique_ptr<Row>>::iterator it;
-            for(it = rows.begin(); it != rows.end(); it++) {
-                std::unordered_map<std::string, std::string> data = it->second->get_data(action->key_values, fields);
-                if(!data.empty()) {
-                    found_rows.push_back(data);
-                }
-            }*/
-
             if(found_rows.empty()) {
                 PRINT("No rows found", nullptr);
             } else {
@@ -493,28 +468,67 @@ namespace kvdb {
             }
             status = kvdb::OK;
         } else if(action->op == Action::DELETE) {
-            /*if(rows.empty()) {
-                int i = 1;
-                while(get_row(std::to_string(i), false) != nullptr) {
-                    i++;
+            if(stream_meta == nullptr) {
+                ERROR("stream_meta null", nullptr);
+                return status;
+            }
+            if(strcmp(stream_meta->mode, O_APPEND) == 0) {
+                stream_meta.reset();
+                stream_meta = std::make_unique<Stream>(path + "meta", O_READONLY);
+                if(!stream_meta->opened()) {
+                    ERROR("failed to open stream_meta to read", nullptr);
+                    return status;
                 }
             }
-            uint32_t deleted_rows_count = 0;
-            std::vector<btree::Key *> keys{};
-            for(auto it = rows.cbegin(), next_it = it; it != rows.cend(); it = next_it) {
-                ++next_it;
-                if(!action->key_values.empty()) {
-                    if(it->second->has_keys_values(action->key_values, keys) && it->second->delete_row()) {
-                        deleted_rows_count++;
-                        rows.erase(it);
-                    }
-                } else if(it->second->delete_row()) {
-                    deleted_rows_count++;
-                    rows.erase(it);
-                }
-            }*/
+            if(!stream_meta->seek(0)) {
+                ERROR("failed to seek at beginning of stream_meta", nullptr);
+                return status;
+            }
 
             uint32_t deleted_rows_count = 0;
+
+            uint32_t slen = 0;
+            std::string row_id = std::string();
+            std::string stream_tree_path = std::string();
+            std::unique_ptr<Stream> stream_tree = nullptr;
+            uint16_t stream_tree_id = 0;
+            while((stream_tree_id = stream_meta->read_ushort()) > 0) {
+                stream_tree_path = path + std::to_string(stream_tree_id);
+                if(!Stream::file_exists(stream_tree_path.c_str())) {
+                    continue;
+                }
+                stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
+                if(!stream_tree->opened() || !stream_tree->seek(0)) {
+                    ERROR("can't open stream_tree to read", nullptr);
+                    continue;
+                }
+
+                if((slen = stream_tree->read_uint()) <= 0 || (row_id = stream_tree->read_string(slen)).empty()) {
+                    continue;
+                }
+
+                if(!Stream::file_exists(std::string(path + "r" + row_id).c_str())) {
+                    continue;
+                }
+
+                std::unique_ptr<Row> row = get_row(row_id, false);
+                if(row == nullptr) {
+                    continue;
+                }
+                std::vector<btree::Key *> keys{};
+                if(!action->key_values.empty()) {
+                    if(row->has_keys_values(action->key_values, keys) && row->delete_row()) {
+                        deleted_rows_count++;
+                    }
+                } else if(row->delete_row()) {
+                    deleted_rows_count++;
+                }
+            }
+
+            if(!stream_meta->seek(0)) {
+                ERROR("failed to seek at beginning of stream_meta", nullptr);
+            }
+
             if(deleted_rows_count == 0) {
                 PRINT("%s", "No rows deleted");
             } else {

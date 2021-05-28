@@ -41,9 +41,9 @@ namespace kvdb {
 
         bool get_stream(const std::string &path, const char *mode=O_APPEND);
         std::unordered_map<std::string, std::string> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
-        btree::Key *has_key(const std::string &str_key) const;
+        [[nodiscard]] btree::Key *has_key(const std::string &str_key) const;
         bool has_value(const btree::Key *key, const std::vector<std::string> &kv) const;
-        bool has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<btree::Key *> keys) const;
+        [[nodiscard]] bool has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<btree::Key *> keys) const;
         bool delete_row();
         static void sort_found_rows(std::vector<std::unordered_map<std::string, std::string>> &found_rows, std::unique_ptr<Action> action);
     };
@@ -63,7 +63,7 @@ namespace kvdb {
         kvdb::Status process_action(std::unique_ptr<Action> action);
         static void display_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows);
         bool open();
-        static bool create_dir(const char *dir_name);
+        //static bool create_folder(const char *dir_name);
         std::unique_ptr<Row> get_row(const std::string &row_id, bool create_if_not_exists=true);
     };
 

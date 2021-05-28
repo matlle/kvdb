@@ -16,4 +16,6 @@ add_executable(kvdb main.cpp
         cli/Cli.cpp cli/Cli.h
         db/Database.cpp db/Database.h
         db/Table.cpp db/Table.h
-        db/Stream.cpp db/Stream.h tree/Tree.cpp tree/Tree.h tree/BPTree.cpp tree/BPTree.h)
+        db/Stream.cpp db/Stream.h
+        tree/Tree.cpp tree/Tree.h
+        tree/BPTree.cpp tree/BPTree.h)
