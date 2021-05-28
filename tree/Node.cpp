@@ -160,23 +160,12 @@ namespace kvdb {
             // to keep keys unique in nodes
             int key_found_index = 0;
             if(contains_key(key.get(), &key_found_index)) {
-                //keys[key_found_index]->twins.push_back(std::move(key));
                 keys[key_found_index].reset();
                 keys[key_found_index] = std::move(key);
                 return BTree::find_root_node(this, parent);
             }
 
             Node *node = this;
-
-            // try to find the key in the entire tree
-            /*btree::Key *found_key = nullptr;
-            search_key(node, key.get(), found_key);
-            if(found_key != nullptr) {
-                found_key->twins.push_back(std::move(key));
-                return BTree::find_root_node(this, parent);
-            }
-
-            node = this;*/
 
             if(is_leaf()) {
                 node = insert_key(std::move(key));
@@ -194,10 +183,6 @@ namespace kvdb {
             if(was_break) {
                 return BTree::find_root_node(this, parent);
             }
-            /*if(node == nullptr) {
-                //return this;
-                return BTree::find_root_node(this, parent);
-            }*/
             Node *node1 = node->insert_key(std::move(key));
             return BTree::find_root_node(node1, node1->parent);
         }
@@ -704,7 +689,6 @@ namespace kvdb {
         bool Node::is_root() {
             return !is_leaf() && parent == nullptr;
         }
-
 
     } // namespace btree
 

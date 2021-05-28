@@ -10,37 +10,37 @@
 
 namespace kvdb {
 
-    int8_t Action::get_action(const std::string &str) {
+    int8_t TableQuery::get_action(const std::string &str) {
         if (str == "put") {
-            return PUT;
+            return PUT_;
         }
         if (str == "get") {
-            return GET;
+            return GET_;
         }
         if (str == "delete") {
-            return DELETE;
+            return DELETE_;
         }
         return -1;
     }
 
-    std::unique_ptr<Action> Action::parse(const std::string &str) {
-        std::unique_ptr<Action> action = std::make_unique<Action>();
-        std::vector<std::string> words = Cli::split_string(str, '.');
+    std::unique_ptr<TableQuery> TableQuery::get_table_query(const std::string &query) {
+        std::unique_ptr<TableQuery> table_query = std::make_unique<TableQuery>();
+        std::vector<std::string> words = Cli::split_string(query, '.');
         if(words.empty() || words.size() <= 1) {
             return nullptr;
         }
-        action->table_name = words.at(0);
+        table_query->table_name = words.at(0);
         std::vector<std::string> words1 = Cli::split_string(words.at(1), '(');
         if(words1.empty() || words1.size() <= 1) {
             return nullptr;
         }
-        action->op = Action::get_action(words1.at(0));
+        table_query->op = TableQuery::get_action(words1.at(0));
         std::string action_fields = words1.at(1).substr(0, words1.at(1).size() - 1);
         std::vector<std::string> fields = Cli::split_string(action_fields, ',');
         for(const auto &i : fields) {
             std::vector<std::string> field = Cli::split_string(i, '=');
             if(field.size() > 1 && !field.at(0).empty() && !field.at(1).empty()) {
-                action->key_values.push_back(field);
+                table_query->key_values.push_back(field);
             }
         }
         if(words.size() >= 3) {
@@ -58,7 +58,7 @@ namespace kvdb {
                         flag = true;
                         break;
                     }
-                    action->order_by += words.at(2).at(i);
+                    table_query->order_by += words.at(2).at(i);
                     i++;
                 }
                 if(flag) {
@@ -69,12 +69,12 @@ namespace kvdb {
                         i++;
                     }
                     if(order == "desc") {
-                        action->order = order;
+                        table_query->order = order;
                     }
                 }
             }
         }
-        return action;
+        return table_query;
     }
 
     Row::Row(const std::string &row_id) {
@@ -85,14 +85,14 @@ namespace kvdb {
         stream_data = std::make_unique<Stream>(path + "r" + row_id, mode);
         if(!stream_data->opened()) {
             if(strcmp(mode, O_APPEND) == 0) {
-                ERROR("%s", "can't open stream_data to append");
+                PRINT_ERROR("%s", "can't open stream_data to append");
             }
             return false;
         }
         stream_tree = std::make_unique<Stream>(path + std::to_string(btree::Node::hash_key("r" + row_id)), mode);
         if(!stream_tree->opened()) {
             if(strcmp(mode, O_APPEND) == 0) {
-                ERROR("%s", "can't open stream_tree to append");
+                PRINT_ERROR("%s", "can't open stream_tree to append");
             }
             return false;
         }
@@ -110,21 +110,29 @@ namespace kvdb {
         }
 
         if(!stream_data->seek(0)) {
-            ERROR("failed to seek at beginning of stream_data", nullptr);
+            PRINT_ERROR("failed to seek at beginning of stream_data", nullptr);
             return data;
         }
 
+        std::string id_value = std::string();
         uint32_t len = 0;
         while((len = stream_data->read_uint()) > 0) {
             std::string key = stream_data->read_string(len);
             std::string value = std::string();
             if(!key.empty() && (len = stream_data->read_uint()) > 0) {
                 value = stream_data->read_string(len);
+                if(key == "id") {
+                    id_value = value;
+                    continue;
+                }
+                data[key] = value;
             }
-            data[key] = value;
+        }
+        if(!id_value.empty()) {
+            data["id"] = id_value;
         }
         if(!stream_data->seek_end()) {
-            ERROR("%", "failed to seek_end of stream_data");
+            PRINT_ERROR("%", "failed to seek_end of stream_data");
         }
         return data;
     }
@@ -135,13 +143,13 @@ namespace kvdb {
             return false;
         }
         if(!stream_data->seek(key->stream_data_pos)) {
-            ERROR("failed to seek in stream_data", nullptr);
+            PRINT_ERROR("failed to seek in stream_data", nullptr);
             return false;
         }
 
         if((len = stream_data->read_uint()) <= 0) {
             if(!stream_data->seek_end()) {
-                ERROR("failed to seek_end of stream_data", nullptr);
+                PRINT_ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
@@ -149,14 +157,14 @@ namespace kvdb {
         std::string str_key = stream_data->read_string(len);
         if(str_key.empty() || str_key != kv.at(0)) {
             if(!stream_data->seek_end()) {
-                ERROR("failed to seek_end of stream_data", nullptr);
+                PRINT_ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
 
         if((len = stream_data->read_uint()) <= 0) {
             if(!stream_data->seek_end()) {
-                ERROR("failed to seek_end of stream_data", nullptr);
+                PRINT_ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
@@ -165,7 +173,7 @@ namespace kvdb {
 
         if(str_value.empty() || str_value != kv.at(1)) {
             if(!stream_data->seek_end()) {
-                ERROR("failed to seek_end of stream_data", nullptr);
+                PRINT_ERROR("failed to seek_end of stream_data", nullptr);
             }
             return false;
         }
@@ -232,7 +240,7 @@ namespace kvdb {
         return found_key;
     }
 
-    void Row::sort_found_rows(std::vector<std::unordered_map<std::string, std::string>> &found_rows, std::unique_ptr<Action> action) {
+    void Row::sort_found_rows(std::vector<std::unordered_map<std::string, std::string>> &found_rows, std::unique_ptr<TableQuery> action) {
         // insertion sort
         int i = 1;
         while(i < found_rows.size()) {
@@ -261,16 +269,6 @@ namespace kvdb {
         path = db_path + std::string((const char *)PATH_SEPARATOR) + name + std::string((const char *)PATH_SEPARATOR);
     }
 
-    /*bool Table::create_folder(const char *folder_name) {
-        //boost::system::error_code ec;
-        //boost::filesystem::detail::create_directory(folder_name, &ec);
-        if(ec.value() != 0) {
-            ERROR("failed to create table folder: %s", ec.message().c_str());
-            return false;
-        }
-        return true;
-    }*/
-
     bool Table::open() {
         if(!Database::create_directory(path.c_str())) {
             return false;
@@ -292,16 +290,16 @@ namespace kvdb {
             return nullptr;
         }
         if(!row->stream_tree->seek(0)) {
-            ERROR("can't seek to start of stream_tree", nullptr);
+            PRINT_ERROR("can't seek to start of stream_tree", nullptr);
             return nullptr;
         }
         row->tree = btree::BTree::deserialize(row->stream_tree.get());
         if(row->tree == nullptr) {
-            ERROR("failed to get tree object", nullptr);
+            PRINT_ERROR("failed to get tree object", nullptr);
             return nullptr;
         }
         if(!row->stream_tree->seek_end()) {
-            ERROR("can't seek_end stream_tree", nullptr);
+            PRINT_ERROR("can't seek_end stream_tree", nullptr);
             return nullptr;
         }
 
@@ -311,7 +309,7 @@ namespace kvdb {
                     stream_meta.reset();
                     stream_meta = std::make_unique<Stream>(path + "meta", O_APPEND);
                     if(!stream_meta->opened()) {
-                        ERROR("stream_meta not opened", nullptr);
+                        PRINT_ERROR("stream_meta not opened", nullptr);
                         return nullptr;
                     }
                 }
@@ -321,9 +319,9 @@ namespace kvdb {
         return row;
     }
 
-    kvdb::Status Table::process_action(std::unique_ptr<Action> action) {
-        kvdb::Status status = kvdb::ERROR;
-        if(action->op == Action::PUT) {
+    kvdb::Status Table::process_action(std::unique_ptr<TableQuery> action) {
+        kvdb::Status status = kvdb::Status::ERROR_;
+        if(action->op == TableQuery::PUT_) {
             std::string row_id = std::string();
             bool has_not_id = true;
             for(const auto &key_value : action->key_values) {
@@ -348,8 +346,8 @@ namespace kvdb {
                 row = get_row(row_id);
             }
             if(row == nullptr) {
-                ERROR("failed to insert row", nullptr);
-                return kvdb::ERROR;
+                PRINT_ERROR("failed to insert row", nullptr);
+                return kvdb::Status::ERROR_;
             }
 
             uint32_t bytes_written = 0, stream_data_pos = 0;
@@ -398,22 +396,22 @@ namespace kvdb {
             }
 
             recent_row = std::move(row);
-            status = kvdb::OK;
-        } else if(action->op == Action::GET) {
+            status = kvdb::Status::OK_;
+        } else if(action->op == TableQuery::GET_) {
             if(stream_meta == nullptr) {
-                ERROR("stream_meta null", nullptr);
+                PRINT_ERROR("stream_meta null", nullptr);
                 return status;
             }
             if(strcmp(stream_meta->mode, O_APPEND) == 0) {
                 stream_meta.reset();
                 stream_meta = std::make_unique<Stream>(path + "meta", O_READONLY);
                 if(!stream_meta->opened()) {
-                    ERROR("failed to open stream_meta to read", nullptr);
+                    PRINT_ERROR("failed to open stream_meta to read", nullptr);
                     return status;
                 }
             }
             if(!stream_meta->seek(0)) {
-                ERROR("failed to seek at beginning of stream_meta", nullptr);
+                PRINT_ERROR("failed to seek at beginning of stream_meta", nullptr);
                 return status;
             }
             std::vector<std::unordered_map<std::string, std::string>> found_rows{};
@@ -430,7 +428,7 @@ namespace kvdb {
                 }
                 stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
                 if(!stream_tree->opened() || !stream_tree->seek(0)) {
-                    ERROR("can't open stream_tree to read", nullptr);
+                    PRINT_ERROR("can't open stream_tree to read", nullptr);
                     continue;
                 }
 
@@ -454,7 +452,7 @@ namespace kvdb {
             }
 
             if(!stream_meta->seek(0)) {
-                ERROR("failed to seek at beginning of stream_meta", nullptr);
+                PRINT_ERROR("failed to seek at beginning of stream_meta", nullptr);
             }
 
             if(found_rows.empty()) {
@@ -466,22 +464,22 @@ namespace kvdb {
                 PRINT("(%u) row%s found", found_rows.size(), (found_rows.size() > 1 ? "s" : ""));
                 display_found_rows(found_rows);
             }
-            status = kvdb::OK;
-        } else if(action->op == Action::DELETE) {
+            status = kvdb::Status::OK_;
+        } else if(action->op == TableQuery::DELETE_) {
             if(stream_meta == nullptr) {
-                ERROR("stream_meta null", nullptr);
+                PRINT_ERROR("stream_meta null", nullptr);
                 return status;
             }
             if(strcmp(stream_meta->mode, O_APPEND) == 0) {
                 stream_meta.reset();
                 stream_meta = std::make_unique<Stream>(path + "meta", O_READONLY);
                 if(!stream_meta->opened()) {
-                    ERROR("failed to open stream_meta to read", nullptr);
+                    PRINT_ERROR("failed to open stream_meta to read", nullptr);
                     return status;
                 }
             }
             if(!stream_meta->seek(0)) {
-                ERROR("failed to seek at beginning of stream_meta", nullptr);
+                PRINT_ERROR("failed to seek at beginning of stream_meta", nullptr);
                 return status;
             }
 
@@ -499,7 +497,7 @@ namespace kvdb {
                 }
                 stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
                 if(!stream_tree->opened() || !stream_tree->seek(0)) {
-                    ERROR("can't open stream_tree to read", nullptr);
+                    PRINT_ERROR("can't open stream_tree to read", nullptr);
                     continue;
                 }
 
@@ -526,7 +524,7 @@ namespace kvdb {
             }
 
             if(!stream_meta->seek(0)) {
-                ERROR("failed to seek at beginning of stream_meta", nullptr);
+                PRINT_ERROR("failed to seek at beginning of stream_meta", nullptr);
             }
 
             if(deleted_rows_count == 0) {
@@ -534,7 +532,7 @@ namespace kvdb {
             } else {
                 PRINT("%u row%s deleted", deleted_rows_count, (deleted_rows_count > 1 ? "s" : ""));
             }
-            status = kvdb::OK;
+            status = kvdb::Status::OK_;
         }
         return status;
     }
@@ -550,26 +548,27 @@ namespace kvdb {
                 continue;
             }
 
+            row = "{";
             std::unordered_map<std::string, std::string>::iterator it;
             size_t j = 0;
             std::string s = std::string();
             for(it = found_row.begin(); it != found_row.end(); ++it) {
                 s = it->first + ": " + it->second;
-                row.insert(0, s);
+                row += s;
                 if(j + 1 < found_row.size()) {
-                    row.insert(0, ", ");
+                    row += ", ";
                 }
                 j++;
             }
 
             row += "}";
-            row.insert(0, "{");
 
             if(row.length() > 2) {
                 if(!str.empty()) {
                     str += "\n";
                 }
                 str += row;
+
                 row = "";
             }
         }

@@ -8,6 +8,7 @@
 #include "../utils/log.hpp"
 #include "../cli/Cli.h"
 
+
 namespace kvdb {
 
     Database::Database(const std::string &path) {
@@ -15,11 +16,8 @@ namespace kvdb {
     }
 
     bool Database::open() {
-        //boost::system::error_code ec;
-        //boost::filesystem::detail::create_directory(path.c_str(), &ec);
-
         if(!create_directory(path.c_str())) {
-            ERROR("failed to create database directory", nullptr);
+            PRINT_ERROR("failed to create database directory", nullptr);
             return false;
         }
 #ifdef OS_WINDOWS
@@ -30,9 +28,19 @@ namespace kvdb {
         if(words.empty()) {
             return false;
         }
-        name = words.at(words.size() - 1);
+        uint32_t i = words.size() - 1;
+        while(i >= 0 && words.at(i).empty()) {
+            i--;
+        }
+        if(words.at(i).empty()) {
+            return false;
+        }
+        name = words.at(i);
         if(name.empty()) {
             return false;
+        }
+        if(path.at(path.size() - 1) != '/' && path.at(path.size() - 1) != '\\') {
+            path += std::string((const char *)PATH_SEPARATOR);
         }
         return opened = true;
     }
@@ -42,33 +50,55 @@ namespace kvdb {
     }
 
     bool Database::create_directory(const char *path) {
-#ifdef OS_WINDOW
-        if(!CreateDirectory(path, NULL)) {
+#ifdef OS_WINDOWS
+        if(!CreateDirectory(path, nullptr)) {
             DWORD error_id = GetLastError();
-           if(error_id != ERROR_ALREADY_EXISTS) {
-               ERROR("%s", get_last_error_msg(error_id).c_str());
-               return false;
-           }
+            if(error_id != ERROR_ALREADY_EXISTS) {
+                PRINT_ERROR("%s", get_last_error_msg(error_id).c_str());
+                return false;
+            }
         }
-        return true;
 #endif
+#ifndef OS_WINDOWS
         struct stat st = {0};
         if(stat(path, &st) == -1) {
             int r = mkdir(path, 0777);
             if(r != 0 && r != EEXIST)  {
-                ERROR("failed to create directory: %s", strerror(errno));
+                PRINT_ERROR("failed to create directory: %s", strerror(errno));
                 return false;
             }
         }
+#endif
         return true;
     }
 
+    Table *Database::get_table(const char *table_name) {
+        auto it = tables.find(table_name);
+        Table *table = nullptr;
+        if(it == tables.end()) {
+            std::unique_ptr<Table> t = std::make_unique<Table>(table_name, path);
+            if(!t->open()) {
+                t.reset();
+                return nullptr;
+            }
+            tables.insert(std::pair<std::string, std::unique_ptr<Table>>(table_name, std::move(t)));
+            it = tables.find(table_name);
+            if(it != tables.end()) {
+                table = it->second.get();
+            }
+        } else {
+            table = it->second.get();
+        }
+        return table;
+    }
+
 #ifdef OS_WINDOWS
-    std::string get_last_error_msg(DWORD error_id) {
+    std::string Database::get_last_error_msg(DWORD error_id) {
         if(error_id == 0) {
             return std::string();
         }
-        return std::system_category().message(error_id);
+        //return std::system_category().message(error_id);
+        return std::string();
     }
 #endif
 

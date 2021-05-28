@@ -8,7 +8,7 @@
 #define PRINT(str, args...) \
 out(0, str, args)
 
-#define ERROR(str, args...) \
+#define PRINT_ERROR(str, args...) \
 out(1, str, args)
 
 template<typename... Args>

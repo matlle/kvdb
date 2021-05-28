@@ -13,7 +13,7 @@ namespace kvdb {
         this->path = path;
         this->mode = mode;
         if(this->path.empty()) {
-            ERROR("%s", "stream path empty");
+            PRINT_ERROR("stream path empty", nullptr);
             return;
         }
         struct stat st = {0};
@@ -24,12 +24,12 @@ namespace kvdb {
             }
         }
         if(!seek_end()) {
-            ERROR("%s failed to seek_end", this->path.c_str());
+            PRINT_ERROR("%s failed to seek_end", this->path.c_str());
             return;
         }
         int64_t number_of_bytes = ftell(file_ptr);
         if(number_of_bytes == -1) {
-            ERROR("failed ftell %s", strerror(errno));
+            PRINT_ERROR("failed ftell %s", strerror(errno));
             return;
         }
         total_bytes = number_of_bytes;
@@ -219,8 +219,8 @@ namespace kvdb {
             file_ptr = nullptr;
             return true;
         }
-        ERROR("failed to close stream %s", path.c_str());
-        ERROR("%s", strerror(errno));
+        PRINT_ERROR("failed to close stream %s", path.c_str());
+        PRINT_ERROR("%s", strerror(errno));
         return false;
     }
 
@@ -228,14 +228,23 @@ namespace kvdb {
         if(remove(path.c_str()) == 0) {
             return true;
         }
-        ERROR("failed to delete file %s", path.c_str());
+        PRINT_ERROR("failed to delete file %s", path.c_str());
         return false;
     }
 
     bool Stream::file_exists(const char *file_path) {
-        struct stat buf{};
-        return (stat(file_path, &buf) == 0);
+        #ifdef OS_WINDOWS
+            if(INVALID_FILE_ATTRIBUTES == GetFileAttributes(file_path) && GetLastError() == ERROR_FILE_NOT_FOUND) {
+                return false;
+            }
+        #endif
+        #ifndef OS_WINDOWS
+            struct stat buf{};
+            if(stat(file_path, &buf) != 0) {
+                return false;
+            }
+        #endif
+        return true;
     }
 
-}
-
+} // namespace kvdb

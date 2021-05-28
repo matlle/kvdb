@@ -54,7 +54,7 @@ namespace kvdb {
             void move_half_children_to_node(Node *node);
             void merge_node(Node *node, bool merging_to_predecessor=true);
             int find_merging_node_key_index(Node *node, bool merging_to_predecessor=true);
-            [[nodiscard]] int keys_count() const;
+            int keys_count() const;
             static Node *find_child_node(const Key *key, const Node *node);
             int binary_search(const Key *key);
             int contains_key(const Key *key, int *found_key_index);

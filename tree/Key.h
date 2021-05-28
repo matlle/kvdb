@@ -28,9 +28,8 @@ namespace kvdb {
             explicit Key(const std::string &key);
 
             bool serialize(Stream *stream_tree) const;
-            bool serialize_deleted(Stream *stream_tree);
         };
 
-    }
+    } // namespace btree
 
 } // namespace kvdb
