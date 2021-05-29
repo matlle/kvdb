@@ -26,6 +26,7 @@ namespace kvdb {
         void print_help();
         static int8_t get_command(const std::vector<std::string> &words, const std::string &str_cmd);
         static std::vector<std::string> split_string(const std::string &text, char sep);
+        static bool is_table_op(int8_t cmd);
     };
 
 } // namespace kvdb

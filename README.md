@@ -21,5 +21,5 @@
 * to delete rows from a table  
    * >testdb> students.delete(key=value) // will delete all rows which contain this key and value  
      testdb> students.delete() // will delete all rows from the table
-* to load and process queries from a file
+* to load and process queries from a text file
    * >testdb> queryload /path/dump.txt

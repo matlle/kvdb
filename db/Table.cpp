@@ -10,14 +10,14 @@
 
 namespace kvdb {
 
-    int8_t TableQuery::get_action(const std::string &str) {
-        if (str == "put") {
+    int8_t TableQuery::get_op(const std::string &cmd) {
+        if (cmd == "put") {
             return PUT_;
         }
-        if (str == "get") {
+        if (cmd == "get") {
             return GET_;
         }
-        if (str == "delete") {
+        if (cmd == "delete") {
             return DELETE_;
         }
         return -1;
@@ -34,7 +34,7 @@ namespace kvdb {
         if(words1.empty() || words1.size() <= 1) {
             return nullptr;
         }
-        table_query->op = TableQuery::get_action(words1.at(0));
+        table_query->op = TableQuery::get_op(words1.at(0));
         std::string action_fields = words1.at(1).substr(0, words1.at(1).size() - 1);
         std::vector<std::string> fields = Cli::split_string(action_fields, ',');
         for(const auto &i : fields) {
@@ -219,11 +219,11 @@ namespace kvdb {
     }
 
     bool Row::delete_row() {
-        if(stream_data != nullptr && stream_tree != nullptr) {
-            if(stream_data->close() && stream_tree->close()) {
-                if(stream_data->delete_file() && stream_tree->delete_file()) {
-                    stream_data = nullptr;
-                    stream_tree = nullptr;
+        if(stream_tree != nullptr && stream_data != nullptr) {
+            if(stream_tree->close() && stream_data->close()) {
+                if(stream_tree->delete_file() && stream_data->delete_file()) {
+                    stream_tree.reset();
+                    stream_data.reset();
                     return true;
                 }
             }
@@ -266,7 +266,7 @@ namespace kvdb {
 
     Table::Table(const std::string &name, const std::string &db_path) {
         this->name = name;
-        path = db_path + std::string((const char *)PATH_SEPARATOR) + name + std::string((const char *)PATH_SEPARATOR);
+        path = db_path + name + std::string((const char *)PATH_SEPARATOR);
     }
 
     bool Table::open() {
@@ -319,85 +319,96 @@ namespace kvdb {
         return row;
     }
 
-    kvdb::Status Table::process_action(std::unique_ptr<TableQuery> action) {
-        kvdb::Status status = kvdb::Status::ERROR_;
-        if(action->op == TableQuery::PUT_) {
-            std::string row_id = std::string();
-            bool has_not_id = true;
-            for(const auto &key_value : action->key_values) {
-                if(!key_value.empty() && key_value.at(0) == "id") {
-                    row_id = key_value.at(1);
-                    has_not_id = false;
-                    break;
-                }
+    void Table::update_row(Table *table, std::unique_ptr<TableQuery> query) {
+        if(table == nullptr || table->db == nullptr || query == nullptr) {
+            return;
+        }
+        std::string row_id = std::string();
+        bool has_not_id = true;
+        for(const auto &key_value : query->key_values) {
+            if(!key_value.empty() && key_value.at(0) == "id") {
+                row_id = key_value.at(1);
+                has_not_id = false;
+                break;
             }
-            if(has_not_id) {
-                if(stream_meta != nullptr && stream_meta->seek_end()) {
-                    int64_t number_of_bytes = ftell(stream_meta->file_ptr);
-                    max_id = (number_of_bytes / 2) + 1;
-                }
-                row_id = std::to_string(max_id);
+        }
+        if(has_not_id) {
+            if(table->stream_meta != nullptr && table->stream_meta->seek_end()) {
+                int64_t number_of_bytes = ftell(table->stream_meta->file_ptr);
+                table->max_id = (number_of_bytes / 2) + 1;
             }
+            row_id = std::to_string(table->max_id);
+        }
 
-            std::unique_ptr<Row> row = nullptr;
-            if(recent_row != nullptr && recent_row->row_id == row_id) {
-                row = std::move(recent_row);
-            } else {
-                row = get_row(row_id);
-            }
-            if(row == nullptr) {
-                PRINT_ERROR("failed to insert row", nullptr);
-                return kvdb::Status::ERROR_;
-            }
+        std::unique_ptr<Row> row = nullptr;
+        if(table->recent_row != nullptr && table->recent_row->row_id == row_id) {
+            row = std::move(table->recent_row);
+        } else {
+            row = table->get_row(row_id);
+        }
+        if(row == nullptr) {
+            table->db->thread_worker->set(false, Status::ERROR_);
+            PRINT_ERROR("failed to insert row", nullptr);
+            return;
+            //return kvdb::Status::ERROR_;
+        }
 
-            uint32_t bytes_written = 0, stream_data_pos = 0;
-            int64_t number_of_bytes = 0;
-            std::unique_ptr<btree::Key> key = nullptr;
-            if(has_not_id) {
-                bytes_written = row->stream_data->write_string("id");
-                bytes_written += row->stream_data->write_string(row_id);
-                stream_data_pos = row->stream_data->total_bytes - bytes_written;
-                key = std::make_unique<btree::Key>("id");
-                key->stream_data_pos = stream_data_pos;
-                number_of_bytes = ftell(row->stream_tree->file_ptr);
-                if(number_of_bytes == 0) {
-                    number_of_bytes = row->stream_tree->write_string(row_id);
-                }
-                if(key->serialize(row->stream_tree.get())) {
-                    row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
-                }
+        uint32_t bytes_written = 0, stream_data_pos = 0;
+        int64_t number_of_bytes = 0;
+        std::unique_ptr<btree::Key> key = nullptr;
+        if(has_not_id) {
+            bytes_written = row->stream_data->write_string("id");
+            bytes_written += row->stream_data->write_string(row_id);
+            stream_data_pos = row->stream_data->total_bytes - bytes_written;
+            key = std::make_unique<btree::Key>("id");
+            key->stream_data_pos = stream_data_pos;
+            number_of_bytes = ftell(row->stream_tree->file_ptr);
+            if(number_of_bytes == 0) {
+                number_of_bytes = row->stream_tree->write_string(row_id);
             }
-            for(const auto &kv : action->key_values) {
-                if(kv.size() <= 1) {
+            if(key->serialize(row->stream_tree.get())) {
+                row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
+            }
+        }
+        for(const auto &kv : query->key_values) {
+            if(kv.size() <= 1) {
+                continue;
+            }
+            kvdb::btree::Key *found_key = row->has_key(kv.at(0));
+            if(found_key != nullptr) {
+                if(kv.at(0) == "id") {
                     continue;
                 }
-                kvdb::btree::Key *found_key = row->has_key(kv.at(0));
-                if(found_key != nullptr) {
-                    if(kv.at(0) == "id") {
-                        continue;
-                    }
-                    found_key->deleted = true;
-                    btree::Node *root_node = row->tree->root;
-                    row->tree->root = btree::Node::delete_key(root_node, found_key, nullptr);
-                }
-
-                bytes_written = row->stream_data->write_string(kv.at(0));
-                bytes_written += row->stream_data->write_string(kv.at(1));
-                stream_data_pos = row->stream_data->total_bytes - bytes_written;
-                key = std::make_unique<btree::Key>(kv.at(0));
-                key->stream_data_pos = stream_data_pos;
-                number_of_bytes = ftell(row->stream_tree->file_ptr);
-                if(number_of_bytes == 0) {
-                    number_of_bytes = row->stream_tree->write_string(row_id);
-                }
-                if(key->serialize(row->stream_tree.get())) {
-                    row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
-                }
+                found_key->deleted = true;
+                btree::Node *root_node = row->tree->root;
+                row->tree->root = btree::Node::delete_key(root_node, found_key, nullptr);
             }
 
-            recent_row = std::move(row);
+            bytes_written = row->stream_data->write_string(kv.at(0));
+            bytes_written += row->stream_data->write_string(kv.at(1));
+            stream_data_pos = row->stream_data->total_bytes - bytes_written;
+            key = std::make_unique<btree::Key>(kv.at(0));
+            key->stream_data_pos = stream_data_pos;
+            number_of_bytes = ftell(row->stream_tree->file_ptr);
+            if(number_of_bytes == 0) {
+                number_of_bytes = row->stream_tree->write_string(row_id);
+            }
+            if(key->serialize(row->stream_tree.get())) {
+                row->tree->root = row->tree->root->insert_key_to_leaf(std::move(key));
+            }
+        }
+        table->recent_row = std::move(row);
+        table->db->thread_worker->set(false, Status::OK_);
+    }
+
+    kvdb::Status Table::process_query(std::unique_ptr<TableQuery> query) {
+        kvdb::Status status = kvdb::Status::ERROR_;
+        if(query->op == TableQuery::PUT_) {
+            db->thread_worker = std::make_unique<ThreadWorker>();
+            std::thread thread(update_row, this, std::move(query));
+            thread.detach();
             status = kvdb::Status::OK_;
-        } else if(action->op == TableQuery::GET_) {
+        } else if(query->op == TableQuery::GET_) {
             if(stream_meta == nullptr) {
                 PRINT_ERROR("stream_meta null", nullptr);
                 return status;
@@ -444,7 +455,7 @@ namespace kvdb {
                 if(row == nullptr) {
                     continue;
                 }
-                std::unordered_map<std::string, std::string> data = row->get_data(action->key_values, fields);
+                std::unordered_map<std::string, std::string> data = row->get_data(query->key_values, fields);
                 row.reset();
                 if(!data.empty()) {
                     found_rows.push_back(data);
@@ -458,14 +469,14 @@ namespace kvdb {
             if(found_rows.empty()) {
                 PRINT("No rows found", nullptr);
             } else {
-                if(!action->order_by.empty()) {
-                    Row::sort_found_rows(found_rows, std::move(action));
+                if(!query->order_by.empty()) {
+                    Row::sort_found_rows(found_rows, std::move(query));
                 }
                 PRINT("(%u) row%s found", found_rows.size(), (found_rows.size() > 1 ? "s" : ""));
-                display_found_rows(found_rows);
+                print_found_rows(found_rows);
             }
             status = kvdb::Status::OK_;
-        } else if(action->op == TableQuery::DELETE_) {
+        } else if(query->op == TableQuery::DELETE_) {
             if(stream_meta == nullptr) {
                 PRINT_ERROR("stream_meta null", nullptr);
                 return status;
@@ -497,13 +508,21 @@ namespace kvdb {
                 }
                 stream_tree = std::make_unique<Stream>(stream_tree_path, O_READONLY);
                 if(!stream_tree->opened() || !stream_tree->seek(0)) {
+                    stream_tree.reset();
                     PRINT_ERROR("can't open stream_tree to read", nullptr);
                     continue;
                 }
 
                 if((slen = stream_tree->read_uint()) <= 0 || (row_id = stream_tree->read_string(slen)).empty()) {
+                    stream_tree.reset();
                     continue;
                 }
+
+                if(!stream_tree->close()) {
+                    stream_tree.reset();
+                    continue;
+                }
+                stream_tree.reset();
 
                 if(!Stream::file_exists(std::string(path + "r" + row_id).c_str())) {
                     continue;
@@ -514,8 +533,8 @@ namespace kvdb {
                     continue;
                 }
                 std::vector<btree::Key *> keys{};
-                if(!action->key_values.empty()) {
-                    if(row->has_keys_values(action->key_values, keys) && row->delete_row()) {
+                if(!query->key_values.empty()) {
+                    if(row->has_keys_values(query->key_values, keys) && row->delete_row()) {
                         deleted_rows_count++;
                     }
                 } else if(row->delete_row()) {
@@ -528,7 +547,7 @@ namespace kvdb {
             }
 
             if(deleted_rows_count == 0) {
-                PRINT("%s", "No rows deleted");
+                PRINT("No rows deleted", nullptr);
             } else {
                 PRINT("%u row%s deleted", deleted_rows_count, (deleted_rows_count > 1 ? "s" : ""));
             }
@@ -537,7 +556,7 @@ namespace kvdb {
         return status;
     }
 
-    void Table::display_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows) {
+    void Table::print_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows) {
         if(found_rows.empty()) {
             return;
         }

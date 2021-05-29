@@ -54,7 +54,7 @@ namespace kvdb {
         if(!CreateDirectory(path, nullptr)) {
             DWORD error_id = GetLastError();
             if(error_id != ERROR_ALREADY_EXISTS) {
-                PRINT_ERROR("%s", get_last_error_msg(error_id).c_str());
+                PRINT_ERROR("%s", get_last_error_str(error_id).c_str());
                 return false;
             }
         }
@@ -89,16 +89,20 @@ namespace kvdb {
         } else {
             table = it->second.get();
         }
+        if(table != nullptr) {
+            table->db = this;
+        }
         return table;
     }
 
 #ifdef OS_WINDOWS
-    std::string Database::get_last_error_msg(DWORD error_id) {
+    std::string Database::get_last_error_str(DWORD error_id) {
         if(error_id == 0) {
             return std::string();
         }
-        //return std::system_category().message(error_id);
-        return std::string();
+        char err_str[256];
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err_str, 255, nullptr);
+        return std::string((const char *)err_str);
     }
 #endif
 

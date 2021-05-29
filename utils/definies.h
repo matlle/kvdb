@@ -10,7 +10,7 @@
 #endif
 
 #ifdef OS_WINDOWS
-#define PATH_SEPARATOR "\\0"
+#define PATH_SEPARATOR "\\"
 #else
 #define PATH_SEPARATOR "/\0"
 #endif

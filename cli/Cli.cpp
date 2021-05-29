@@ -50,7 +50,11 @@ namespace kvdb {
             }
             db = std::make_unique<Database>(words.at(1));
             if(!db->open()) {
-                PRINT_ERROR("failed to open database '%s'", db->name.c_str());
+                if(db->name.empty()) {
+                    PRINT_ERROR("failed to open database", nullptr);
+                } else {
+                    PRINT_ERROR("failed to open database '%'", db->name.c_str());
+                }
                 prompt();
                 return;
             }
@@ -74,21 +78,21 @@ namespace kvdb {
                 if(table_action == nullptr || (table = db->get_table(table_action->table_name.c_str())) == nullptr) {
                     continue;
                 }
-                status = table->process_action(std::move(table_action));
+                status = table->process_query(std::move(table_action));
                 if(status == Status::ERROR_) {
                     error_str = "failed to process query\n" + line + "\nfinishing loading data...";
                     break;
                 }
                 PRINT("process query: %s", line.c_str());
             }
-        } else if(cmd == TableQuery::PUT_ || cmd == TableQuery::GET_ || cmd == TableQuery::DELETE_) {
+        } else if(is_table_op(cmd)) {
             CHECK_DB_OPENED();
             std::unique_ptr<TableQuery> table_query = TableQuery::get_table_query(command);
             if(table_query != nullptr) {
                 Table *table = db->get_table(table_query->table_name.c_str());
                 if(table != nullptr) {
                     std::vector<std::vector<std::string>> result{};
-                    status = table->process_action(std::move(table_query));
+                    status = table->process_query(std::move(table_query));
                 }
             }
         }
@@ -96,6 +100,12 @@ END_QUERY:
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms = t2 - t1;
         std::string duration_str = DateTime::duration(ms.count());
+        while(db != nullptr && db->thread_worker != nullptr && db->thread_worker->busy) {
+            status = db->thread_worker->terminated_status;
+        }
+        if(db->thread_worker != nullptr) {
+            db->thread_worker.reset();
+        }
         if(status == kvdb::Status::OK_) {
             PRINT("Ok %s", duration_str.c_str());
         } else {
@@ -130,7 +140,7 @@ END_QUERY:
         }
         if(words1.size() > 1) {
             words1 = split_string(words1.at(1), '(');
-            return TableQuery::get_action(words1.at(0));
+            return TableQuery::get_op(words1.at(0));
         }
         return -1;
     }
@@ -158,6 +168,10 @@ END_QUERY:
         }
         tokens.push_back(text.substr(start));
         return tokens;
+    }
+
+    bool Cli::is_table_op(int8_t cmd) {
+        return (cmd == TableQuery::PUT_ || cmd == TableQuery::GET_ || cmd == TableQuery::DELETE_);
     }
 
 } // namespace kvdb

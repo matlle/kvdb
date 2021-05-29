@@ -219,8 +219,7 @@ namespace kvdb {
             file_ptr = nullptr;
             return true;
         }
-        PRINT_ERROR("failed to close stream %s", path.c_str());
-        PRINT_ERROR("%s", strerror(errno));
+        PRINT_ERROR("failed to close stream %s\n%s", path.c_str(), strerror(errno));
         return false;
     }
 
@@ -228,7 +227,7 @@ namespace kvdb {
         if(remove(path.c_str()) == 0) {
             return true;
         }
-        PRINT_ERROR("failed to delete file %s", path.c_str());
+        PRINT_ERROR("failed to delete file %s\n%s", path.c_str(), strerror(errno));
         return false;
     }
 
