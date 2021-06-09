@@ -3,7 +3,7 @@
  */
 #include "cli/Cli.h"
 
-int main(int argc, char *argv[]) {
+int main() {
     kvdb::Cli cli;
     cli.prompt();
     return 0;

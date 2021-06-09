@@ -3,7 +3,7 @@
  */
 #pragma once
 
-#define VERSION "1.0.2"
+#define VERSION "1.0.3"
 
 #if defined(_WIN32) || defined(WIN32)
 #define OS_WINDOWS 1
@@ -15,9 +15,9 @@
 #define PATH_SEPARATOR "/\0"
 #endif
 
-#define BTREE_MAX_DEGREE 5
+#define TREE_MAX_DEGREE 5
 typedef unsigned char byte;
 
 namespace kvdb {
-    enum class Status {OK_,ERROR_};
+    enum class Status {OK_, ERROR_};
 }

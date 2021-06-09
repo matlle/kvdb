@@ -6,7 +6,7 @@
 
 namespace kvdb {
 
-    namespace btree {
+    namespace tree {
 
         Key::Key() = default;
 
@@ -29,7 +29,15 @@ namespace kvdb {
             return stream_tree->write_uint(stream_data_pos) > 0;
         }
 
-    } // namespace btree
+        Key::Key(uint16_t key) {
+            this->hash = key;
+        }
+
+        std::shared_ptr<Key> Key::copy() {
+            return std::make_shared<Key>(*this);
+        }
+
+    } // namespace tree
 
 } // namespace kvdb
 

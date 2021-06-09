@@ -6,10 +6,14 @@
 
 namespace kvdb {
 
-    namespace btree {
+    namespace tree {
 
-        BTree::BTree() {
-            root = new Node();
+        BTree::BTree() : plus(false), root(new Node) {
+            root->tree = this;
+        }
+
+        BTree::BTree(bool plus) : plus(plus), root(new Node) {
+            root->tree = this;
         }
 
         Node *BTree::find_root_node(Node *node, Node *parent) {
@@ -38,9 +42,55 @@ namespace kvdb {
             return tree;
         }
 
+        bool BTree::is_bptree() const {
+            return plus;
+        }
+
+        void BTree::update_node_links() const {
+            if(root->is_leaf()) {
+                return;
+            }
+            Node *child_node = nullptr;
+            do {
+                child_node = child_node == nullptr ? root->children.at(0).get() : child_node->children.at(0).get();
+            } while(!child_node->is_leaf());
+
+            Node *parent_node = child_node->parent;
+            size_t i;
+            for(i = 0; i < parent_node->children.size(); i++) {
+                if(i + 1 < parent_node->children.size()) {
+                    parent_node->children.at(i)->next = parent_node->children.at(i + 1).get();
+                } else {
+                    parent_node->children.at(i)->next = nullptr;
+                }
+            }
+
+            Node *parent_node1 = parent_node->parent;
+            if(parent_node1 != nullptr) {
+                parent_node->children.at(parent_node->children.size() - 1)->next = parent_node1->children.at(1)->children.at(0).get();
+                for(i = 1; i < parent_node1->children.size(); i++) {
+                    child_node = parent_node1->children.at(i).get();
+                    for(size_t j = 0; j < child_node->children.size(); j++) {
+                        if(j + 1 < child_node->children.size()) {
+                            child_node->children.at(i)->next = child_node->children.at(j + 1).get();
+                        } else {
+                            child_node->children.at(i)->next = nullptr;
+                        }
+                    }
+                }
+            }
+        }
+
+        void BTree::set_root_node(Node *node) {
+            root = node;
+            if(root->tree->is_bptree()) {
+                root->tree->update_node_links();
+            }
+        }
+
         BTree::~BTree() = default;
 
-    } // namespace btree
+    } // namespace tree
 
 } // namespace kvdb
 

@@ -100,12 +100,9 @@ END_QUERY:
         auto t2 = high_resolution_clock::now();
         duration<double, std::milli> ms = t2 - t1;
         std::string duration_str = DateTime::duration(ms.count());
-        while(db != nullptr && db->thread_worker != nullptr && db->thread_worker->busy) {
+        /*while(db != nullptr && db->thread_worker != nullptr && db->thread_worker->busy) {
             status = db->thread_worker->terminated_status;
-        }
-        if(db->thread_worker != nullptr) {
-            db->thread_worker.reset();
-        }
+        }*/
         if(status == kvdb::Status::OK_) {
             PRINT("Ok %s", duration_str.c_str());
         } else {

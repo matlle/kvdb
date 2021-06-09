@@ -14,12 +14,15 @@
 
 namespace kvdb {
 
-    namespace btree {
+    namespace tree {
 
+        class BTree;
         class Node {
         public:
             Node *parent = nullptr;
-            std::unique_ptr<Key> keys[BTREE_MAX_DEGREE]{};
+            Node *next = nullptr;
+            BTree *tree = nullptr;
+            std::shared_ptr<Key> keys[TREE_MAX_DEGREE]{};
             std::vector<std::unique_ptr<Node>> children{};
 
             explicit Node();
@@ -44,9 +47,9 @@ namespace kvdb {
             bool has_min_keys() const;
             bool is_root();
             static void check_parent_with_min_keys(Node *parent_node);
-            Node *insert_key_to_leaf(std::unique_ptr<Key> key);
-            Node *insert_key(std::unique_ptr<Key> key);
-            void add_to_keys(std::unique_ptr<Key> key);
+            Node *insert_key_to_leaf(std::shared_ptr<Key> key);
+            Node *insert_key(std::shared_ptr<Key> key);
+            void add_into_keys(std::shared_ptr<Key> key);
             void sort_keys();
             Node *split();
             std::unique_ptr<Node> split_keys();
@@ -58,11 +61,11 @@ namespace kvdb {
             static Node *find_child_node(const Key *key, const Node *node);
             int binary_search(const Key *key);
             int contains_key(const Key *key, int *found_key_index);
-            static void found_keys_count(Key *key, std::vector<kvdb::btree::Key *> *keys);
-            static void insert_into_found_keys(Key *key, std::vector<kvdb::btree::Key *> *found_keys);
+            static void found_keys_count(Key *key, std::vector<kvdb::tree::Key *> *keys);
+            static void insert_into_found_keys(Key *key, std::vector<kvdb::tree::Key *> *found_keys);
         };
 
-    } // namespace btree
+    } // namespace tree
 
 } // namespace kvdb
 
