@@ -1,10 +1,9 @@
 /*
  *  Copyright Koukougnon Martial Babo, 2021.
  */
-#include "cli/Cli.h"
+#include "tree/BTree.h"
 
 int main() {
-    kvdb::Cli cli;
-    cli.prompt();
+    kvdb::tree::BTree bTree;
     return 0;
 }

@@ -6,31 +6,30 @@
 #include <cstdint>
 #include <string>
 #include <map>
-#include <unordered_map>
 #include <vector>
 #include <memory>
-#include <thread>
 #include "../tree/BTree.h"
 #include "Stream.h"
 
 namespace kvdb {
 
-    class Database;
-
-    class TableQuery {
+    class Action {
     public:
-        static constexpr int8_t PUT_ = 4;
-        static constexpr int8_t GET_ = 5;
-        static constexpr int8_t DELETE_ = 6;
+        static constexpr int8_t PUT = 2;
+        static constexpr int8_t GET = 3;
+        static constexpr int8_t DELETE = 4;
         std::string table_name;
-        int8_t op;
-        std::vector <std::vector<std::string>> key_values{};
-        std::vector <std::string> fields{};
-        std::string order_by = std::string();
-        std::string order = "asc";
+        int8_t action;
+        std::vector <std::vector<std::string>> key_values;
 
-        static int8_t get_op(const std::string &str);
-        static std::unique_ptr<TableQuery> get_table_query(const std::string &query);
+        static int8_t get_action(const std::string &str);
+        static std::unique_ptr<Action> parse(const std::string &str);
+        static std::string get_key_values_str(const std::vector<std::vector<std::string>> &key_values);
+    };
+
+    struct KeyValue {
+        std::string key = std::string();
+        std::string value = std::string();
     };
 
     class Row {
@@ -38,35 +37,32 @@ namespace kvdb {
         std::string row_id;
         std::unique_ptr<Stream> stream_tree = nullptr;
         std::unique_ptr<Stream> stream_data = nullptr;
-        std::unique_ptr<tree::BTree> tree = nullptr;
+        std::unique_ptr<btree::BTree> tree = nullptr;
 
         explicit Row(const std::string &row_id);
 
-        bool get_stream(const std::string &path, const char *mode=O_APPEND);
-        std::unordered_map<std::string, std::string> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
-        tree::Key *has_key(const std::string &str_key) const;
-        bool has_value(const tree::Key *key, const std::vector<std::string> &kv) const;
-        bool has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<tree::Key *> keys) const;
+        bool get_stream(const std::string &path);
+        std::vector<KeyValue> get_data(std::vector<std::vector<std::string>> &key_values, const std::vector<std::string> &fields) const;
+        btree::Key *has_key(const std::string &str_key) const;
+        bool has_value(const btree::Key *key, const std::vector<std::string> &kv) const;
+        bool has_keys_values(const std::vector<std::vector<std::string>> &key_values, std::vector<btree::Key *> keys) const;
         bool delete_row();
-        static void sort_found_rows(std::vector<std::unordered_map<std::string, std::string>> &found_rows, std::unique_ptr<TableQuery> action);
     };
 
     class Table {
     public:
-        uint32_t max_id = 0;
+        static uint32_t primary_key;
         std::string name = std::string();
         std::string path = std::string();
         bool opened = false;
-        std::unique_ptr<Row> recent_row = nullptr;
-        std::unique_ptr<Stream> stream_meta = nullptr;
-        Database *db = nullptr;
+        std::map<std::string, std::unique_ptr<Row>> rows{};
 
         explicit Table(const std::string &name, const std::string &db_path);
-        kvdb::Status process_query(std::unique_ptr<TableQuery> query);
-        static void print_found_rows(const std::vector<std::unordered_map<std::string, std::string>> &found_rows);
+        kvdb::Status process_action(int8_t action, std::vector<std::vector<std::string>> &key_values);
+        static void display_found_rows(const std::vector<std::vector<KeyValue>> &found_rows);
         bool open();
-        std::unique_ptr<Row> get_row(const std::string &row_id, bool create_if_not_exists=true);
-        static Status update_row(Table *table, std::unique_ptr<TableQuery> query);
+        static bool create_dir(const char *dir_name);
+        Row *get_row(const std::string &row_id);
     };
 
 } // namespace kvdb

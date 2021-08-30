@@ -5,7 +5,7 @@
 
 namespace kvdb {
 
-    namespace tree {
+    namespace btree {
 
         Value::Value() = default;
 

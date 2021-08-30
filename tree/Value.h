@@ -7,7 +7,7 @@
 
 namespace kvdb {
 
-    namespace tree {
+    namespace btree {
 
         class Value {
         public:
