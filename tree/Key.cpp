@@ -6,7 +6,7 @@
 
 namespace kvdb {
 
-    namespace btree {
+    namespace tree {
 
         Key::Key() = default;
 
@@ -22,27 +22,22 @@ namespace kvdb {
             if(stream_tree == nullptr || !stream_tree->opened()) {
                 return false;
             }
-            uint32_t bytes_written = stream_tree->write_ulong(hash);
+            uint32_t bytes_written = stream_tree->write_ushort(hash);
             if(bytes_written == 0) {
                 return false;
             }
-            //value->stream_tree_pos = stream_tree->total_bytes - bytes_written;
-            //stream_tree->total_bytes - bytes_written;
             return stream_tree->write_uint(stream_data_pos) > 0;
-                //&& stream_tree->write_byte(!deleted ? 0 : 1) > 0;
         }
 
-        bool Key::serialize_deleted(Stream *stream_tree) {
-            if(stream_tree == nullptr || !stream_tree->opened()) {
-                return false;
-            }
-            if(!stream_tree->seek(value->stream_tree_pos)) {
-                return false;
-            }
-            return stream_tree->write_string(std::string("0000000000000"), false) == 13 && stream_tree->seek_end();
+        Key::Key(uint16_t key) {
+            this->hash = key;
         }
 
-    } // namespace btree
+        std::shared_ptr<Key> Key::copy() {
+            return std::make_shared<Key>(*this);
+        }
+
+    } // namespace tree
 
 } // namespace kvdb
 

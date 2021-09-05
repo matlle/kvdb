@@ -3,6 +3,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 #define VERSION "1.0.3"
 
 #if defined(_WIN32) || defined(WIN32)
@@ -15,9 +17,45 @@
 #define PATH_SEPARATOR "/\0"
 #endif
 
-#define TREE_MAX_DEGREE 5
+#define PAGE_SIZE 5
 typedef unsigned char byte;
 
 namespace kvdb {
     enum class Status {OK_, ERROR_};
+
+    class StatusEx {
+    public:
+        static constexpr int8_t ERROR = -1;
+        static constexpr int8_t SUCCESS = 0;
+        int8_t level;
+        const char *msg;
+
+        explicit StatusEx(int8_t level, const char *msg) {
+            this->level = level;
+            this->msg = msg;
+        }
+
+        bool is_error() const {
+            return level == ERROR;
+        }
+
+        bool is_success() const {
+            return level == SUCCESS;
+        }
+    };
+
+    class Error : public StatusEx {
+    public:
+        explicit Error(const char *msg) : StatusEx(ERROR, msg) {
+        }
+    };
+
+    class Success : public StatusEx {
+    public:
+        explicit Success() : StatusEx(SUCCESS, "OK") {
+        }
+
+        explicit Success(const char *msg) : StatusEx(SUCCESS, msg) {
+        }
+    };
 }

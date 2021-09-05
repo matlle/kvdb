@@ -6,7 +6,7 @@
 * Data are organized by databases and tables.
 * A database is a directory on the filesystem which can contains tables. Tables are represented by folders inside the
   database directory.
-* Data in tables are stored in binary file stream.
+* Data in tables are stored in binary file keys_stream.
 
 # Examples
 * to select a database testdb (if the database doesn't exist, it will be created)
