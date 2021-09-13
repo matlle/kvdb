@@ -13,7 +13,9 @@ namespace kvdb {
             this->key = key;
             this->value = value;
             this->key_hash = hash16(this->key);
-            this->value_hash = hash16(this->value);
+            if(!value.empty()) {
+                this->value_hash = hash16(this->value);
+            }
         }
 
         uint16_t TreeKey::hash16(const std::string &value) {

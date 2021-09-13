@@ -601,7 +601,8 @@ namespace kvdb {
             return Error("failed to get root_node");
         }
         std::shared_ptr<tree::TreeKey> treeKey = std::make_shared<tree::TreeKey>(key, value);
-        return tree::TreeNode::insert(root_node.get(), std::move(treeKey));
+        StatusEx status = tree::TreeNode::insert(nullptr, root_node.get(), std::move(treeKey));
+        return status;
         /*if(root_node->is_full()) {
             //tree::TreeNode::NEXT_NODE_ID = root_node->id + 1;
             std::unique_ptr<tree::TreeNode> left_node = std::make_unique<tree::TreeNode>(path);
@@ -635,8 +636,8 @@ namespace kvdb {
         return tree::TreeNode::insert_not_full(root_node.get(), key, value);*/
     }
 
-    kvdb::StatusEx Table::get(const std::string &key, std::string *value) {
-        return Success();
+    kvdb::StatusEx Table::get(const std::string &key, std::string *value) const {
+        return tree::TreeNode::query(0, std::make_unique<tree::TreeKey>(key, ""), value, path);
     }
 
 } // namespace kvdb

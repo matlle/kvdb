@@ -18,6 +18,7 @@
 #endif
 
 #define PAGE_SIZE 5
+#define DISK_READ_MAX 1024 * 1024 * 256 // 256 MB
 typedef unsigned char byte;
 
 namespace kvdb {
@@ -27,8 +28,10 @@ namespace kvdb {
     public:
         static constexpr int8_t ERROR = -1;
         static constexpr int8_t SUCCESS = 0;
-        int8_t level;
-        const char *msg;
+        int8_t level = ERROR;
+        const char *msg{};
+
+        explicit StatusEx() = default;
 
         explicit StatusEx(int8_t level, const char *msg) {
             this->level = level;

@@ -29,7 +29,7 @@ int main() {
         return EXIT_FAILURE;
     }
     kvdb::Table *table = db->get_table("students");
-    kvdb::StatusEx status = table->put("1", "Value1");
+    /*kvdb::StatusEx status = table->put("1", "Value1");
     status = table->put("2", "Value2");
     status = table->put("3", "Value3");
     status = table->put("4", "Value4");
@@ -51,6 +51,14 @@ int main() {
     status = table->put("20", "Value20");
     if(status.is_error()) {
         PRINT_ERROR(status.msg, nullptr);
+    }*/
+
+    std::string value = std::string();
+    kvdb::StatusEx status = table->get("11", &value);
+    if(status.is_error()) {
+        PRINT_ERROR(status.msg, nullptr);
+    } else {
+        PRINT(value.c_str(), nullptr);
     }
     //students_put(table);
     //std::string value;

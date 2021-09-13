@@ -8,7 +8,7 @@ namespace kvdb {
 
     namespace tree {
 
-        uint16_t TreeNode::NEXT_NODE_ID = 0;
+        uint16_t TreeNode::NEXT_NODE_ID = 1;
 
         TreeNode::TreeNode(const std::string &table_path) {
             this->id = NEXT_NODE_ID++;
@@ -70,6 +70,7 @@ namespace kvdb {
                         break;
                     }
                     key->key_serialized = true;
+                    key->key = std::string();
                     if(!key->value_serialized) {
                         std::unique_ptr<Stream> value_stream = std::make_unique<Stream>(table_path + std::to_string(key->value_hash), O_WRITE);
                         if(!value_stream->opened()) {
@@ -81,6 +82,7 @@ namespace kvdb {
                             break;
                         }
                         key->value_serialized = true;
+                        key->value = std::string();
                     }
                 }
             }
@@ -104,7 +106,8 @@ namespace kvdb {
         }
 
         bool TreeNode::is_full() const {
-            return keys_count() == PAGE_SIZE - 1;
+            return keys_count() == PAGE_SIZE;
+            //return keys_count() == PAGE_SIZE - 1;
         }
 
         bool TreeNode::is_leaf() const {
@@ -174,116 +177,159 @@ namespace kvdb {
             return false;
         }
 
-        kvdb::StatusEx TreeNode::insert(TreeNode *node, std::shared_ptr<tree::TreeKey> treeKey, bool moving_from_child_to_parent) {
+        kvdb::StatusEx TreeNode::on_root_node_full() {
+            std::unique_ptr<tree::TreeNode> left_node = std::make_unique<tree::TreeNode>(table_path);
+            std::unique_ptr<tree::TreeNode> rigth_node = std::make_unique<tree::TreeNode>(table_path);
+            left_node->parent = this;
+            rigth_node->parent = this;
+            // move children to left and right node also
+            int median = (int)std::floor(PAGE_SIZE / 2);
+            uint32_t i = 0;
+            for(; i < median; i++) {
+                if(keys[i] != nullptr) {
+                    left_node->keys[i] = std::move(keys[i]);
+                    left_node->keys[i]->key_serialized = false;
+                }
+            }
+            int count = PAGE_SIZE - median - 1;
+            for(i = 0; i < count; i++) {
+                if(++median < PAGE_SIZE) {
+                    if(keys[median] != nullptr) {
+                        rigth_node->keys[i] = std::move(keys[median]);
+                        rigth_node->keys[i]->key_serialized = false;
+                    }
+                }
+            }
+            move_keys_to_front();
+            bool node_is_leaf = is_leaf();
+            if(!node_is_leaf) {
+                uint32_t count_children = children.size();
+                for(i = 0; i < (count_children / 2); i++) {
+                    left_node->children.push_back(std::move(children.at(i)));
+                }
+                for(i = (count_children / 2); i < count_children; i++) {
+                    rigth_node->children.push_back(std::move(children.at(i)));
+                }
+                children.clear();
+            }
+            children.push_back(std::move(left_node));
+            children.push_back(std::move(rigth_node));
+            if(!disk_write(true, true /*!node_is_leaf*/) || !children.at(0)->disk_write() || !children.at(1)->disk_write()) {
+                return Error("node disk_write() failed");
+            }
+            return Success();
+        }
+
+        kvdb::StatusEx TreeNode::on_node_full(TreeNode *parent_node, int *child_node_index) {
+            if(parent_node == nullptr) {
+                return Error("parent_node is null");
+            }
+            if(*child_node_index == -1) {
+                for(int i = 0; i < parent_node->children.size(); i++) {
+                    if(parent_node->children.at(i).get() == this) {
+                        *child_node_index = i;
+                        break;
+                    }
+                }
+            }
+
+            std::unique_ptr<tree::TreeNode> new_node = std::make_unique<tree::TreeNode>(parent_node->table_path);
+            new_node->parent = parent_node;
+            // move children also
+            int median = get_median_index();
+            int count = PAGE_SIZE - median - 1;
+            uint32_t i;
+            for(i = 0; i < count; i++) {
+                if(++median < PAGE_SIZE) {
+                    if(keys[median] != nullptr) {
+                        new_node->keys[i] = std::move(keys[median]);
+                        new_node->keys[i]->key_serialized = false;
+                    }
+                }
+            }
+
+            StatusEx status = insert(parent_node->parent, parent_node, std::move(keys[get_median_index()]), true);
+            if(status.is_error()) {
+                return status;
+            }
+
+            std::vector<std::unique_ptr<TreeNode>> tmp_children{};
+            uint32_t new_node_index = 0;
+            if(*child_node_index + 1 < parent_node->children.size()) {
+                for(i = *child_node_index + 1; i < parent_node->children.size(); i++) {
+                    tmp_children.push_back(std::move(parent_node->children.at(i)));
+                }
+                parent_node->children.erase(parent_node->children.begin() + *child_node_index + 1, parent_node->children.end());
+                parent_node->children.push_back(std::move(new_node));
+                new_node_index = parent_node->children.size() - 1;
+                for(i = 0; i < tmp_children.size(); i++) {
+                    parent_node->children.push_back(std::move(tmp_children.at(i)));
+                }
+            } else {
+                parent_node->children.push_back(std::move(new_node));
+                new_node_index = parent_node->children.size() - 1;
+            }
+            *child_node_index = (int)new_node_index;
+            if(!parent_node->disk_write(false, true) || !parent_node->children.at(new_node_index)->disk_write() || !disk_write(true)) {
+                return Error("node disk_write() failed");
+            }
+            return Success();
+        }
+
+        kvdb::StatusEx TreeNode::insert(TreeNode *parent_node, TreeNode *node, std::shared_ptr<tree::TreeKey> treeKey, bool moving_from_child_to_parent) {
             if(node == nullptr) {
                 return Error("insert node failed: node is null");
             }
             if(node->is_full()) {
-                std::unique_ptr<tree::TreeNode> left_node = std::make_unique<tree::TreeNode>(node->table_path);
-                std::unique_ptr<tree::TreeNode> rigth_node = std::make_unique<tree::TreeNode>(node->table_path);
-                // move children to left and right node also
-                int median = (int)std::floor(PAGE_SIZE / 2);
-                uint32_t i = 0;
-                for(; i < median; i++) {
-                    if(node->keys[i] != nullptr) {
-                        left_node->keys[i] = std::move(node->keys[i]);
-                        left_node->keys[i]->key_serialized = false;
-                    }
+                kvdb::StatusEx status;
+                if(parent_node != nullptr) {
+                    int child_nodex_index = -1;
+                    status = node->on_node_full(parent_node, &child_nodex_index);
+                } else {
+                    status = node->on_root_node_full();
                 }
-                int count = PAGE_SIZE - median - 1;
-                for(i = 0; i < count; i++) {
-                    if(++median < PAGE_SIZE) {
-                        if(node->keys[median] != nullptr) {
-                            rigth_node->keys[i] = std::move(node->keys[median]);
-                            rigth_node->keys[i]->key_serialized = false;
-                        }
-                    }
+                if(status.is_error()) {
+                    return status;
                 }
-                node->move_keys_to_front();
-                bool is_leaf = node->is_leaf();
-                if(!is_leaf) {
-                    uint32_t count_children = node->children.size();
-                    for(i = 0; i < (count_children / 2); i++) {
-                        left_node->children.push_back(std::move(node->children.at(i)));
-                    }
-                    for(i = (count_children / 2); i < count_children; i++) {
-                        rigth_node->children.push_back(std::move(node->children.at(i)));
-                    }
-                }
-                node->children.push_back(std::move(left_node));
-                node->children.push_back(std::move(rigth_node));
-                node->disk_write(true, !is_leaf);
-                node->children.at(0)->disk_write();
-                node->children.at(1)->disk_write();
             }
-            return tree::TreeNode::insert_not_full(node, std::move(treeKey), moving_from_child_to_parent);
+            return tree::TreeNode::insert_not_full(parent_node, node, std::move(treeKey), moving_from_child_to_parent);
         }
 
-        kvdb::StatusEx TreeNode::insert_not_full(TreeNode *node, std::shared_ptr<tree::TreeKey> treeKey, bool moving_from_child_to_parent) {
+        kvdb::StatusEx TreeNode::insert_not_full(TreeNode *parent_node, TreeNode *node, std::shared_ptr<tree::TreeKey> treeKey, bool moving_from_child_to_parent) {
             if(node->is_leaf() || moving_from_child_to_parent) {
                 node->insert_into_keys(std::move(treeKey));
                 node->sort_keys();
-                if(!node->disk_write()) {
-                    return Error("root_node disk_write() failed");
+                if(node->is_full()) {
+                    if(parent_node != nullptr) {
+                        int child_nodex_index = -1;
+                        node->on_node_full(parent_node, &child_nodex_index);
+                    } else {
+                        return node->on_root_node_full();
+                    }
+                }
+                if(!node->disk_write(moving_from_child_to_parent)) {
+                    return Error("node disk_write() failed");
                 }
             } else {
-                uint16_t child_node_id = 0;
-                find_child_node(node, treeKey.get(), &child_node_id);
+                int child_node_index = -1;
+                find_child_node(node, treeKey.get(), &child_node_index);
                 //std::shared_ptr<TreeNode> child_node = disk_read(child_node_id, node->table_path);
                 TreeNode *child_node = nullptr;
-                if(child_node_id >= node->children.size() || node->children.at(child_node_id) == nullptr) {
+                if(child_node_index >= node->children.size() || node->children.at(child_node_index) == nullptr) {
                     return Error("failed to find child_node");
                 }
-                child_node = node->children.at(child_node_id).get();
+                child_node = node->children.at(child_node_index).get();
+
                 if(child_node->is_full()) {
-                    std::unique_ptr<tree::TreeNode> new_node = std::make_unique<tree::TreeNode>(node->table_path);
-                    // move children also
-                    int median = (int)std::floor(PAGE_SIZE / 2);
-                    int count = PAGE_SIZE - median - 1;
-                    uint32_t i;
-                    for(i = 0; i < count; i++) {
-                        if(++median < PAGE_SIZE) {
-                            if(child_node->keys[median] != nullptr) {
-                                new_node->keys[i] = std::move(child_node->keys[median]);
-                                new_node->keys[i]->key_serialized = false;
-                            }
-                        }
-                    }
-                    median = (int)std::floor(PAGE_SIZE / 2);
-                    uint16_t median_key_hash = child_node->keys[median]->key_hash;
-                    if(median < PAGE_SIZE) {
-                        //node->insert_into_keys(std::move(child_node->keys[median]));
-                        StatusEx status = insert(node, std::move(child_node->keys[median]), true);
-                        if(status.is_error()) {
-                            return status;
-                        }
-                    }
-                    std::vector<std::unique_ptr<TreeNode>> tmp_children{};
-                    uint32_t new_node_index = 0;
-                    if(child_node_id + 1 < node->children.size()) {
-                        for(i = child_node_id + 1; i < node->children.size(); i++) {
-                            tmp_children.push_back(std::move(node->children.at(i)));
-                        }
-                        node->children.erase(node->children.begin() + child_node_id + 1, node->children.end());
-                        node->children.push_back(std::move(new_node));
-                        new_node_index = node->children.size() - 1;
-                        for(i = 0; i < tmp_children.size(); i++) {
-                            node->children.push_back(std::move(tmp_children.at(i)));
-                        }
-                    } else {
-                        node->children.push_back(std::move(new_node));
-                        new_node_index = node->children.size() - 1;
-                    }
-                    node->disk_write();
-                    node->children.at(new_node_index)->disk_write();
-                    child_node->disk_write(true);
+                    uint16_t median_key_hash = child_node->keys[get_median_index()]->key_hash;
+                    child_node->on_node_full(node, &child_node_index);
                     if(treeKey->key_hash < median_key_hash) {
-                        insert_not_full(child_node, std::move(treeKey));
+                        insert_not_full(node, child_node, std::move(treeKey));
                     } else {
-                        insert_not_full(node->children.at(node->children.size() - 1).get(), std::move(treeKey));
+                        insert_not_full(node, node->children.at(child_node_index/*node->children.size() - 1*/).get(), std::move(treeKey));
                     }
                 } else {
-                    insert_not_full(child_node, std::move(treeKey));
+                    insert_not_full(node, child_node, std::move(treeKey));
                 }
             }
             return Success();
@@ -307,6 +353,18 @@ namespace kvdb {
             return true;
         }
 
+        std::string TreeNode::disk_read_value(uint16_t value_hash) const {
+            std::unique_ptr<Stream> value_stream = std::make_unique<Stream>(table_path + std::to_string(value_hash), O_READ);
+            if(!value_stream->opened()) {
+                return "";
+            }
+            uint32_t value_length = value_stream->read_uint();
+            if(value_length <= 0 || value_length > DISK_READ_MAX) {
+                return "";
+            }
+            return value_stream->read_string(value_length);
+        }
+
         bool TreeNode::disk_read_children_node(bool lazy_read) {
             if(!children_stream_set_mode(O_READ)) {
                 return false;
@@ -314,6 +372,10 @@ namespace kvdb {
             uint16_t node_id = 0;
             while((node_id = children_stream->read_ushort()) > 0) {
                 std::unique_ptr<TreeNode> child_node = std::make_unique<TreeNode>(node_id, table_path);
+                if(!lazy_read) {
+                    child_node->disk_read_keys();
+                    child_node->disk_read_children_node(false);
+                }
                 children.push_back(std::move(child_node));
             }
             return true;
@@ -355,9 +417,9 @@ namespace kvdb {
             return true;
         }
 
-        void TreeNode::find_child_node(TreeNode *node, const TreeKey *treeKey, uint16_t *node_id) {
+        void TreeNode::find_child_node(TreeNode *node, const TreeKey *treeKey, int *child_node_index) {
             if(node->is_leaf()) {
-                *node_id = node->id;
+                //*node_id = node->id;
                 return;
             }
             uint16_t j = 0;
@@ -367,8 +429,78 @@ namespace kvdb {
             if(j >= node->children.size()) {
                 j--;
             }
-            j = j < 0 ? 0 : j;
-            find_child_node(node->children.at(j).get(), treeKey, node_id);
+            if(j < 0) {
+                j = 0;
+            }
+            *child_node_index = j;
+            find_child_node(node->children.at(j).get(), treeKey, child_node_index);
+        }
+
+        kvdb::StatusEx TreeNode::get_child_node(TreeNode *node, const TreeKey *treeKey, TreeNode *&child_node) {
+            int child_node_index = -1;
+            find_child_node(node, treeKey, &child_node_index);
+            if(child_node_index >= node->children.size() || node->children.at(child_node_index) == nullptr) {
+                return Error("failed to find child_node");
+            }
+            child_node = node->children.at(child_node_index).get();
+            return Success();
+        }
+
+        kvdb::StatusEx TreeNode::query(uint16_t node_id, std::unique_ptr<TreeKey> treeKey, std::string *value, const std::string &table_path) {
+            std::shared_ptr<TreeNode> node = disk_read(node_id, table_path);
+            if(node == nullptr) {
+                return Success();
+            }
+            int found_key_index = -1;
+            if(node->contains_key(treeKey->key_hash, &found_key_index)) {
+                *value = node->disk_read_value(node->keys[found_key_index]->value_hash);
+                return Success();
+            }
+            if(!node->is_leaf()) {
+                TreeNode *child_node = nullptr;
+                kvdb::StatusEx status = get_child_node(node.get(), treeKey.get(), child_node);
+                if(status.is_error()) {
+                    return status;
+                }
+                if(child_node == nullptr) {
+                    return Error("ailed to find child_node");
+                }
+                return query(child_node->id, std::move(treeKey), value, table_path);
+            }
+            return Success();
+        }
+
+        int TreeNode::binary_search(const uint16_t key_hash) {
+            int key_found_index = -1;
+            int median;
+            int left_index = 0;
+            int right_index = keys_count() - 1;
+            while(left_index <= right_index) {
+                median = (int)std::floor((left_index + right_index) / 2);
+                if(keys[median] == nullptr) {
+                    break;
+                }
+                if(keys[median]->key_hash < key_hash) {
+                    left_index = median + 1;
+                } else if(keys[median]->key_hash > key_hash) {
+                    right_index = median - 1;
+                } else {
+                    key_found_index = median;
+                    break;
+                }
+            }
+            return key_found_index;
+        }
+
+        int TreeNode::contains_key(const uint16_t key_hash, int *found_key_index) {
+            return (*found_key_index = binary_search(key_hash)) > -1
+                   && *found_key_index < PAGE_SIZE
+                   && keys[*found_key_index] != nullptr
+                   && !keys[*found_key_index]->deleted;
+        }
+
+        int TreeNode::get_median_index() {
+            return (int)std::floor(PAGE_SIZE / 2);;
         }
 
     } // tree

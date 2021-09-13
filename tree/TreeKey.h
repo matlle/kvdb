@@ -4,7 +4,9 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
+#include "../db/Stream.h"
 
 namespace kvdb {
 
@@ -18,6 +20,7 @@ namespace kvdb {
             uint16_t value_hash = 0;
             bool key_serialized = false;
             bool value_serialized = false;
+            bool deleted = false;
 
             explicit TreeKey();
             TreeKey(const std::string &key, const std::string &value);

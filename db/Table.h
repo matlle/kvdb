@@ -70,7 +70,7 @@ namespace kvdb {
         std::unique_ptr<Row> get_row(const std::string &row_id, bool create_if_not_exists=true);
         static Status update_row(Table *table, std::unique_ptr<TableQuery> query);
         kvdb::StatusEx put(const std::string &key, const std::string &value);
-        kvdb::StatusEx get(const std::string &key, std::string *value);
+        kvdb::StatusEx get(const std::string &key, std::string *value) const;
     };
 
 } // namespace kvdb
