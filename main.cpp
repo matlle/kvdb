@@ -5,8 +5,8 @@
 #include "db/Database.h"
 #include "utils/log.hpp"
 
-void students_put(kvdb::Table *table) {
-    for(uint32_t i = 0; i < 1000000; i++) {
+void students_put(kvdb::Table *table, uint32_t number_of_records=100000) {
+    for(uint32_t i = 0; i < number_of_records; i++) {
         kvdb::StatusEx status = table->put(std::to_string(i), "Value" + std::to_string(i));
         if(status.is_error()) {
             PRINT_ERROR(status.msg, nullptr);
@@ -29,37 +29,31 @@ int main() {
         return EXIT_FAILURE;
     }
     kvdb::Table *table = db->get_table("students");
-    /*kvdb::StatusEx status = table->put("1", "Value1");
-    status = table->put("2", "Value2");
-    status = table->put("3", "Value3");
-    status = table->put("4", "Value4");
-    status = table->put("5", "Value5");
-    status = table->put("6", "Value6");
-    status = table->put("7", "Value7");
-    status = table->put("8", "Value8");
-    status = table->put("9", "Value9");
-    status = table->put("10", "Value10");
-    status = table->put("11", "Value11");
-    status = table->put("12", "Value12");
-    status = table->put("13", "Value13");
-    status = table->put("14", "Value14");
-    status = table->put("15", "Value15");
-    status = table->put("16", "Value16");
-    status = table->put("17", "Value17");
-    status = table->put("18", "Value18");
-    status = table->put("19", "Value19");
-    status = table->put("20", "Value20");
-    if(status.is_error()) {
-        PRINT_ERROR(status.msg, nullptr);
-    }*/
+    //students_put(table, 10);
 
-    std::string value = std::string();
-    kvdb::StatusEx status = table->get("11", &value);
+    /*std::string value = std::string();
+    kvdb::StatusEx status = table->get("2", &value);
     if(status.is_error()) {
         PRINT_ERROR(status.msg, nullptr);
     } else {
-        PRINT(value.c_str(), nullptr);
+        if(value.empty()) {
+            PRINT("value not found", nullptr);
+        } else {
+            PRINT(value.c_str(), nullptr);
+        }
+    }*/
+
+    kvdb::StatusEx status;
+    for(uint32_t i = 0; i < 10; i++) {
+        status = table->remove(std::to_string(i));
+        if(status.is_error()) {
+            PRINT_ERROR("%s %s", status.msg, std::to_string(i).c_str());
+        } else {
+            PRINT("%s: key %s deleted", status.msg, i);
+        }
     }
+
+
     //students_put(table);
     //std::string value;
     //table->get("3", &value);

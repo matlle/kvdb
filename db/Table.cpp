@@ -640,4 +640,8 @@ namespace kvdb {
         return tree::TreeNode::query(0, std::make_unique<tree::TreeKey>(key, ""), value, path);
     }
 
+    kvdb::StatusEx Table::remove(const std::string &key) const {
+        return tree::TreeNode::remove(0, std::make_unique<tree::TreeKey>(key, ""), path);
+    }
+
 } // namespace kvdb

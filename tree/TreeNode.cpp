@@ -153,7 +153,7 @@ namespace kvdb {
                     empty_slot = i;
                     continue;
                 }
-                if(keys[i] != nullptr) {
+                if(empty_slot > -1 && keys[i] != nullptr) {
                     keys[empty_slot] = std::move(keys[i]);
                     i = empty_slot;
                     empty_slot = -1;
@@ -313,7 +313,6 @@ namespace kvdb {
             } else {
                 int child_node_index = -1;
                 find_child_node(node, treeKey.get(), &child_node_index);
-                //std::shared_ptr<TreeNode> child_node = disk_read(child_node_id, node->table_path);
                 TreeNode *child_node = nullptr;
                 if(child_node_index >= node->children.size() || node->children.at(child_node_index) == nullptr) {
                     return Error("failed to find child_node");
@@ -372,11 +371,9 @@ namespace kvdb {
             uint16_t node_id = 0;
             while((node_id = children_stream->read_ushort()) > 0) {
                 std::unique_ptr<TreeNode> child_node = std::make_unique<TreeNode>(node_id, table_path);
-                if(!lazy_read) {
-                    child_node->disk_read_keys();
-                    child_node->disk_read_children_node(false);
+                if(child_node->disk_read_keys() && child_node->disk_read_children_node()) {
+                    children.push_back(std::move(child_node));
                 }
-                children.push_back(std::move(child_node));
             }
             return true;
         }
@@ -436,13 +433,15 @@ namespace kvdb {
             find_child_node(node->children.at(j).get(), treeKey, child_node_index);
         }
 
-        kvdb::StatusEx TreeNode::get_child_node(TreeNode *node, const TreeKey *treeKey, TreeNode *&child_node) {
-            int child_node_index = -1;
-            find_child_node(node, treeKey, &child_node_index);
-            if(child_node_index >= node->children.size() || node->children.at(child_node_index) == nullptr) {
+        kvdb::StatusEx TreeNode::get_child_node(TreeNode *node, const TreeKey *treeKey, TreeNode *&child_node, int *child_node_index) {
+            find_child_node(node, treeKey, child_node_index);
+            if(*child_node_index >= node->children.size() || node->children.at(*child_node_index) == nullptr) {
                 return Error("failed to find child_node");
             }
-            child_node = node->children.at(child_node_index).get();
+            child_node = node->children.at(*child_node_index).get();
+            if(child_node == nullptr) {
+                return Error("failed to find child_node");
+            }
             return Success();
         }
 
@@ -458,16 +457,233 @@ namespace kvdb {
             }
             if(!node->is_leaf()) {
                 TreeNode *child_node = nullptr;
-                kvdb::StatusEx status = get_child_node(node.get(), treeKey.get(), child_node);
+                int child_node_index = -1;
+                kvdb::StatusEx status = get_child_node(node.get(), treeKey.get(), child_node, &child_node_index);
                 if(status.is_error()) {
                     return status;
                 }
                 if(child_node == nullptr) {
-                    return Error("ailed to find child_node");
+                    return Error("failed to find child_node");
                 }
                 return query(child_node->id, std::move(treeKey), value, table_path);
             }
             return Success();
+        }
+
+        kvdb::StatusEx TreeNode::delete_key(TreeKey *treeKey, bool *deleted) {
+            *deleted = false;
+            int found_key_index = -1;
+            if(treeKey != nullptr) {
+                contains_key(treeKey->key_hash, &found_key_index);
+                if(found_key_index >= 0) {
+                    std::unique_ptr<Stream> value_stream = std::make_unique<Stream>(table_path + std::to_string(keys[found_key_index]->value_hash), O_WRITE);
+                    if(value_stream->opened()) {
+                        if(!value_stream->close() || !value_stream->delete_file()) {
+                            return Error("failed to delete value_stream");
+                        }
+                    }
+                    keys[found_key_index].reset();
+                    *deleted = true;
+                }
+            }
+            move_keys_to_front();
+            sort_keys();
+            if(!keys_stream_set_mode(O_WRITE)) {
+                return Error("failed to set keys_stream to O_WRITE");
+            }
+            disk_write(true);
+            if(!*deleted) {
+                return Error("key not found");
+            }
+            return Success();
+        }
+
+        kvdb::StatusEx TreeNode::remove(uint16_t node_id, std::shared_ptr<TreeKey> treeKey, const std::string &table_path) {
+            bool key_deleted;
+            kvdb::StatusEx status;
+            std::shared_ptr<TreeNode> node = disk_read(node_id, table_path);
+            if(node == nullptr) {
+                return Success();
+            }
+            int found_key_index = -1;
+            bool child_was_moved = false;
+            TreeNode *left_node = nullptr;
+            TreeNode *right_node = nullptr;
+            TreeNode *sibling_node = nullptr;
+            if(node->is_leaf()) {
+                status = node->delete_key(treeKey.get(), &key_deleted);
+                if(status.is_error()) {
+                    return status;
+                }
+            } else if(!node->contains_key(treeKey->key_hash, &found_key_index)) {
+                    TreeNode *child_node = nullptr;
+                    int child_node_index = -1;
+                    int key_index = -1;
+                    status = get_child_node(node.get(), treeKey.get(), child_node, &child_node_index);
+                    if(status.is_error()) {
+                        return status;
+                    }
+                    if(!child_node->contains_key(treeKey->key_hash, &found_key_index)) {
+                        return remove(child_node->id, std::move(treeKey), table_path);
+                    }
+                    key_index = child_node_index >= node->keys_count() ? child_node_index - 1 : child_node_index;
+                    if(child_node->is_half_full()) {
+                        if(child_node_index - 1 >= 0 && node->children.at(child_node_index - 1) != nullptr && node->children.at(child_node_index - 1)->has_more_keys()) {
+                            left_node = node->children.at(child_node_index - 1).get();
+                            insert(node.get(), child_node, std::move(node->keys[key_index]));
+                            insert(node->parent, node.get(), std::move(left_node->keys[left_node->keys_count() - 1]));
+                            node->disk_write(true, true);
+                            if(!child_node->is_leaf()) {
+                                child_node->children.push_back(std::move(left_node->children.at(left_node->children.size() - 1)));
+                                left_node->children.pop_back();
+                                child_was_moved = true;
+                            }
+                            left_node->disk_write(true, child_was_moved);
+                        } else if(child_node_index + 1 < node->children.size() && node->children.at(child_node_index + 1) != nullptr && node->children.at(child_node_index + 1)->has_more_keys()) {
+                            right_node = node->children.at(child_node_index + 1).get();
+                            insert(node.get(), child_node, std::move(node->keys[key_index]));
+                            insert(node->parent, node.get(), std::move(right_node->keys[0]));
+                            node->disk_write(true, true);
+                            if(!child_node->is_leaf()) {
+                                child_node->children.push_back(std::move(right_node->children.at(0)));
+                                right_node->children.erase(right_node->children.begin());
+                                child_was_moved = true;
+                            }
+                            right_node->disk_write(true, child_was_moved);
+                        } else {
+                            if(child_node_index - 1 >= 0) {
+                                sibling_node = node->children.at(child_node_index - 1).get();
+                            } else {
+                                sibling_node = node->children.at(child_node_index + 1).get();
+                            }
+                            uint32_t c = sibling_node->keys_count();
+                            uint32_t c1 = child_node->keys_count();
+                            child_was_moved = false;
+                            uint32_t i;
+                            for(i = 0; i < c1; i++) {
+                                sibling_node->keys[c] = std::move(child_node->keys[i]);
+                                c++;
+                            }
+                            if(!child_node->is_leaf()) {
+                                child_was_moved = true;
+                                c1 = child_node->children.size();
+                                for(i = 0; i < c1; i++) {
+                                    sibling_node->children.push_back(std::move(child_node->children.at(i)));
+                                }
+                            }
+                            sibling_node->disk_write(true, child_was_moved);
+                            node->children.at(child_node_index).reset();
+                            node->children.erase(node->children.begin() + child_node_index);
+                            node->disk_write(true, true);
+                            child_node = sibling_node;
+                        }
+                    }
+                    return remove(child_node->id, std::move(treeKey), table_path);
+            } else {
+                left_node = node->children.at(found_key_index).get();
+                right_node = node->children.at(found_key_index + 1).get();
+                if(left_node->has_more_keys()) {
+                    node->keys[found_key_index] = std::move(left_node->keys[left_node->keys_count() - 1]);
+                    node->disk_write(true, true);
+                    left_node->keys[left_node->keys_count() - 1] = nullptr;
+                    status = remove(left_node->id, nullptr, table_path);
+                } else if(right_node->has_more_keys()) {
+                    node->keys[found_key_index] = std::move(right_node->keys[0]);
+                    node->disk_write(true, true);
+                    right_node->keys[0] = nullptr;
+                    status = remove(right_node->id, nullptr, table_path);
+                } else {
+                    uint32_t c = left_node->keys_count();
+                    uint32_t c1 = right_node->keys_count();
+                    child_was_moved = false;
+                    uint32_t i;
+                    for(i = 0; i < c1; i++) {
+                        left_node->keys[c] = std::move(right_node->keys[i]);
+                        c++;
+                    }
+                    left_node->keys[c] = std::move(node->keys[found_key_index]);
+                    if(!right_node->is_leaf()) {
+                        child_was_moved = true;
+                        c1 = right_node->children.size();
+                        for(i = 0; i < c1; i++) {
+                            left_node->children.push_back(std::move(right_node->children.at(i)));
+                        }
+                    }
+                    node->keys[found_key_index] = nullptr;
+
+                    node->children.at(found_key_index + 1).reset();
+                    node->children.erase(node->children.begin() + found_key_index + 1);
+
+                    if(!node->has_min_keys()) {
+                        TreeNode *new_node = merge(node.get());
+                        if(new_node == nullptr) {
+                            //
+                        } else {
+                            left_node->parent = new_node;
+                        }
+                    } else {
+                        node->disk_write(true, true);
+                    }
+
+                    left_node->disk_write(true, child_was_moved);
+
+                    return remove(left_node->id, std::move(treeKey), table_path);
+                }
+            }
+            return Success();
+        }
+
+        TreeNode *TreeNode::merge(TreeNode *node) {
+            uint32_t node_index = 0;
+            TreeNode *node_parent = node->parent;
+            if(node_parent != nullptr) {
+                for(uint32_t i = 0; i < node_parent->children.size(); i++) {
+                    if(node_parent->children.at(i) != nullptr && node_parent->children.at(i).get() == node) {
+                        node_index = i;
+                        break;
+                    }
+                }
+                TreeNode *left_node = nullptr;
+                TreeNode *right_node = nullptr;
+                if(node_index > 0) {
+                    left_node = node_parent->children.at(node_index - 1).get();
+                }
+                if(node_index < node_parent->children.size() - 1) {
+                    right_node = node_parent->children.at(node_index + 1).get();
+                }
+                if(left_node != nullptr) {
+                    uint32_t c = left_node->keys_count();
+                    uint32_t c1 = node->keys_count();
+                    uint32_t i;
+                    for(i = 0; i < c1; i++) {
+                        left_node->keys[c] = std::move(node->keys[i]);
+                        c++;
+                    }
+                    left_node->keys[c] = std::move(node_parent->keys[0]);
+                    left_node->sort_keys();
+                    node_parent->keys[0] = nullptr;
+                    node_parent->disk_write(true, true);
+                    if(!node_parent->has_min_keys()) {
+                        return merge(node_parent);
+                    }
+                } else if(right_node != nullptr && right_node->has_more_keys()) {
+                    uint32_t c = right_node->keys_count();
+                    uint32_t c1 = node->keys_count();
+                    uint32_t i;
+                    for(i = 0; i < c1; i++) {
+                        right_node->keys[c] = std::move(node->keys[i]);
+                        c++;
+                    }
+                    right_node->keys[c] = std::move(node_parent->keys[node_parent->keys_count() - 1]);
+                    right_node->sort_keys();
+                    node_parent->keys[node_parent->keys_count() - 1] = nullptr;
+                    node_parent->disk_write(true, true);
+                    if(!node_parent->has_min_keys()) {
+                        return merge(node_parent);
+                    }
+                }
+            }
+            return nullptr;
         }
 
         int TreeNode::binary_search(const uint16_t key_hash) {
@@ -492,7 +708,7 @@ namespace kvdb {
             return key_found_index;
         }
 
-        int TreeNode::contains_key(const uint16_t key_hash, int *found_key_index) {
+        bool TreeNode::contains_key(const uint16_t key_hash, int *found_key_index) {
             return (*found_key_index = binary_search(key_hash)) > -1
                    && *found_key_index < PAGE_SIZE
                    && keys[*found_key_index] != nullptr
@@ -500,7 +716,22 @@ namespace kvdb {
         }
 
         int TreeNode::get_median_index() {
-            return (int)std::floor(PAGE_SIZE / 2);;
+            return (int)std::floor(PAGE_SIZE / 2);
+        }
+
+        bool TreeNode::has_more_keys() const {
+            return keys_count() > (int)std::ceil((PAGE_SIZE - 1) / 2);
+        }
+
+        bool TreeNode::has_min_keys() const {
+            if(parent == nullptr) {
+                return keys_count() > 0;
+            }
+            return keys_count() >= (int)std::ceil((PAGE_SIZE - 1) / 2);
+        }
+
+        bool TreeNode::is_half_full() const {
+            return keys_count() == (int)std::ceil((PAGE_SIZE - 1) / 2);;
         }
 
     } // tree

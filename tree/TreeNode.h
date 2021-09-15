@@ -52,13 +52,19 @@ namespace kvdb {
             static kvdb::StatusEx insert(TreeNode *parent_node, TreeNode *child_node, std::shared_ptr<tree::TreeKey> treeKey, bool moving_from_child_to_parent=false);
             static kvdb::StatusEx insert_not_full(TreeNode *parent_node, TreeNode *child_node, std::shared_ptr<tree::TreeKey> treeKey, bool moving_from_child_to_parent=false);
             static void find_child_node(TreeNode *node, const TreeKey *treeKey, int *child_node_index);
-            static kvdb::StatusEx get_child_node(TreeNode *node, const TreeKey *treeKey, TreeNode *&child_node);
-            static kvdb::StatusEx query(uint16_t node_id, std::unique_ptr<TreeKey> key, std::string *value, const std::string &table_path);
+            static kvdb::StatusEx get_child_node(TreeNode *node, const TreeKey *treeKey, TreeNode *&child_node, int *child_node_index);
+            static kvdb::StatusEx query(uint16_t node_id, std::unique_ptr<TreeKey> treeKey, std::string *value, const std::string &table_path);
+            static kvdb::StatusEx remove(uint16_t node_id, std::shared_ptr<TreeKey> treeKey, const std::string &table_path);
             kvdb::StatusEx on_root_node_full();
             kvdb::StatusEx on_node_full(TreeNode *parent_node, int *child_node_index);
             static int get_median_index();
             int binary_search(uint16_t key_hash);
-            int contains_key(uint16_t key_hash, int *found_key_index);
+            bool contains_key(uint16_t key_hash, int *found_key_index);
+            kvdb::StatusEx delete_key(TreeKey *treeKey, bool *deleted);
+            bool has_more_keys() const;
+            bool has_min_keys() const;
+            bool is_half_full() const;
+            static TreeNode *merge(TreeNode *node);
         };
 
     } // tree

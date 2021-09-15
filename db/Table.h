@@ -71,6 +71,7 @@ namespace kvdb {
         static Status update_row(Table *table, std::unique_ptr<TableQuery> query);
         kvdb::StatusEx put(const std::string &key, const std::string &value);
         kvdb::StatusEx get(const std::string &key, std::string *value) const;
+        kvdb::StatusEx remove(const std::string &key) const;
     };
 
 } // namespace kvdb
